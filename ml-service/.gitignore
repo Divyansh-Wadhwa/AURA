@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# Data files (too large for git)
+data/*.csv
+data/*.pkl
+data/*.json
+!data/.gitkeep
+
+# Model files (too large for git)
+app/models/*.pkl
+!app/models/.gitkeep
+!app/models/*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Logs
+*.log

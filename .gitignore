@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# ML Service Data (large files)
+*.pkl
+ml-service/data/*.csv
+ml-service/data/*.json
+!ml-service/data/.gitkeep
+IEMOCAP_features.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+ml-service/venv/
+ml-service/.venv/
+ml-service/env/
+ml-service/ENV/
+perception/venv/
+perception/.venv/
+perception/env/
+perception/ENV/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+coverage/
+
+# Uploads (audio files)
+server/uploads/
+
+# Misc
+*.local
+.cache/
+._*
+TESTING_INSTRUCTIONS.txt
+
+# Corrupted git backup
+.git_corrupted_backup/

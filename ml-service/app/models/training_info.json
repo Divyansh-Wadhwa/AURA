@@ -1,0 +1,113 @@
+{
+  "timestamp": "2025-12-23T01:09:10.539504",
+  "config": {
+    "n_estimators": 100,
+    "max_depth": 4,
+    "learning_rate": 0.1,
+    "min_child_weight": 5,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbosity": 0
+  },
+  "metrics": {
+    "confidence": {
+      "train": {
+        "rmse": 3.9400890807316764,
+        "mae": 3.1300787143464412,
+        "r2": 0.9406586675619892
+      },
+      "validation": {
+        "rmse": 6.0288591416999004,
+        "mae": 4.770316394390586,
+        "r2": 0.8615638638800134
+      }
+    },
+    "clarity": {
+      "train": {
+        "rmse": 3.435461696572426,
+        "mae": 2.7375928024794867,
+        "r2": 0.9201296448870079
+      },
+      "validation": {
+        "rmse": 5.355871005470211,
+        "mae": 4.24252379865529,
+        "r2": 0.8083061492510437
+      }
+    },
+    "empathy": {
+      "train": {
+        "rmse": 5.007179627563265,
+        "mae": 3.8127762582299747,
+        "r2": 0.951909387961358
+      },
+      "validation": {
+        "rmse": 7.875792412032411,
+        "mae": 5.924059353145633,
+        "r2": 0.8779653721088161
+      }
+    },
+    "communication": {
+      "train": {
+        "rmse": 3.6750051487699937,
+        "mae": 2.9151399069323256,
+        "r2": 0.9162727405047871
+      },
+      "validation": {
+        "rmse": 5.4412567395024345,
+        "mae": 4.341890217953156,
+        "r2": 0.8126288562631381
+      }
+    }
+  },
+  "feature_names": [
+    "semantic_relevance_mean",
+    "semantic_relevance_std",
+    "topic_drift_ratio",
+    "avg_sentence_length",
+    "sentence_length_std",
+    "avg_response_length_sec",
+    "response_length_consistency",
+    "assertive_phrase_ratio",
+    "modal_verb_ratio",
+    "hedge_ratio",
+    "filler_word_ratio",
+    "empathy_phrase_ratio",
+    "reflective_response_ratio",
+    "question_back_ratio",
+    "avg_sentiment",
+    "sentiment_variance",
+    "negative_spike_count",
+    "speech_rate_wpm",
+    "speech_rate_variance",
+    "mean_pause_duration",
+    "pause_frequency",
+    "silence_ratio",
+    "pitch_mean",
+    "pitch_variance",
+    "energy_mean",
+    "energy_variance",
+    "monotony_score",
+    "audio_confidence_prob",
+    "audio_nervous_prob",
+    "audio_calm_prob",
+    "emotion_consistency",
+    "eye_contact_ratio",
+    "gaze_variance",
+    "head_turn_frequency",
+    "expression_variance",
+    "smile_ratio",
+    "neutral_face_ratio",
+    "emotion_mismatch_score"
+  ],
+  "n_features": 38,
+  "models_trained": [
+    "confidence",
+    "clarity",
+    "empathy",
+    "communication"
+  ]
+}

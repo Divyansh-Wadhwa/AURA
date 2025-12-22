@@ -1,0 +1,94 @@
+{
+  "confidence": [
+    {
+      "feature": "silence_ratio",
+      "expected": "negative",
+      "actual": "negative",
+      "correlation": -0.3080639503407242,
+      "match": true
+    },
+    {
+      "feature": "audio_nervous_prob",
+      "expected": "negative",
+      "actual": "negative",
+      "correlation": -0.42483001184361874,
+      "match": true
+    },
+    {
+      "feature": "assertive_phrase_ratio",
+      "expected": "positive",
+      "actual": "positive",
+      "correlation": 0.38619217419707125,
+      "match": true
+    }
+  ],
+  "clarity": [
+    {
+      "feature": "topic_drift_ratio",
+      "expected": "negative",
+      "actual": "negative",
+      "correlation": -0.39252531707765953,
+      "match": true
+    },
+    {
+      "feature": "semantic_relevance_mean",
+      "expected": "positive",
+      "actual": "positive",
+      "correlation": 0.33757551286158477,
+      "match": true
+    },
+    {
+      "feature": "filler_word_ratio",
+      "expected": "negative",
+      "actual": "negative",
+      "correlation": -0.26578881116046094,
+      "match": true
+    }
+  ],
+  "empathy": [
+    {
+      "feature": "empathy_phrase_ratio",
+      "expected": "positive",
+      "actual": "positive",
+      "correlation": 0.260503092092255,
+      "match": true
+    },
+    {
+      "feature": "avg_sentiment",
+      "expected": "positive",
+      "actual": "positive",
+      "correlation": 0.2330937433222864,
+      "match": true
+    },
+    {
+      "feature": "audio_calm_prob",
+      "expected": "positive",
+      "actual": "positive",
+      "correlation": 0.21375735600457396,
+      "match": true
+    }
+  ],
+  "communication": [
+    {
+      "feature": "monotony_score",
+      "expected": "negative",
+      "actual": "negative",
+      "correlation": -0.30722921138866,
+      "match": true
+    },
+    {
+      "feature": "semantic_relevance_mean",
+      "expected": "positive",
+      "actual": "positive",
+      "correlation": 0.29811336333281774,
+      "match": true
+    },
+    {
+      "feature": "filler_word_ratio",
+      "expected": "negative",
+      "actual": "negative",
+      "correlation": -0.29582604262148404,
+      "match": true
+    }
+  ]
+}

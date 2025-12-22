@@ -1,0 +1,50 @@
+{
+  "confidence": {
+    "audio_nervous_prob": 0.16747642110806435,
+    "assertive_phrase_ratio": 0.1304458234648137,
+    "audio_confidence_prob": 0.1264822491914042,
+    "silence_ratio": 0.11026409757578173,
+    "monotony_score": 0.09402007454218009,
+    "filler_word_ratio": 0.07495732305646041,
+    "hedge_ratio": 0.07078784000122526,
+    "topic_drift_ratio": 0.04593308682218047,
+    "modal_verb_ratio": 0.04338981277053369,
+    "eye_contact_ratio": 0.04038264227077889
+  },
+  "clarity": {
+    "topic_drift_ratio": 0.18334373824084252,
+    "semantic_relevance_mean": 0.1532016167489185,
+    "energy_variance": 0.10805006383640563,
+    "hedge_ratio": 0.08103913597247353,
+    "filler_word_ratio": 0.08065298340758109,
+    "expression_variance": 0.07824805107548925,
+    "response_length_consistency": 0.07389611993789079,
+    "emotion_mismatch_score": 0.06175913207556621,
+    "monotony_score": 0.06001731094936543,
+    "mean_pause_duration": 0.036292302056959776
+  },
+  "empathy": {
+    "empathy_phrase_ratio": 0.18693163868581336,
+    "energy_variance": 0.16301001428899412,
+    "reflective_response_ratio": 0.15972712489154395,
+    "audio_calm_prob": 0.1039700568941049,
+    "question_back_ratio": 0.09250185241939304,
+    "modal_verb_ratio": 0.04355823589958104,
+    "avg_sentiment": 0.039375202570894975,
+    "emotion_consistency": 0.03773444224597927,
+    "smile_ratio": 0.03358121327003798,
+    "eye_contact_ratio": 0.031034845629190896
+  },
+  "communication": {
+    "monotony_score": 0.1104185039816944,
+    "topic_drift_ratio": 0.11020026007714422,
+    "filler_word_ratio": 0.10209085644351146,
+    "semantic_relevance_mean": 0.09166886235377059,
+    "emotion_consistency": 0.08677783589201192,
+    "eye_contact_ratio": 0.0721937883846422,
+    "silence_ratio": 0.06914566895741915,
+    "expression_variance": 0.0657510915698005,
+    "response_length_consistency": 0.061741814270715636,
+    "energy_mean": 0.06145327558296567
+  }
+}
