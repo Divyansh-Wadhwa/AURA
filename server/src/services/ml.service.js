@@ -1,6 +1,40 @@
 import config from '../config/env.js';
 import logger from '../utils/logger.js';
 
+// ANSI color codes for terminal output
+const COLORS = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  magenta: '\x1b[35m',
+  blue: '\x1b[34m',
+};
+
+const logSection = (title) => {
+  console.log(`\n${COLORS.cyan}${'═'.repeat(70)}${COLORS.reset}`);
+  console.log(`${COLORS.bright}${COLORS.cyan}  ${title}${COLORS.reset}`);
+  console.log(`${COLORS.cyan}${'═'.repeat(70)}${COLORS.reset}\n`);
+};
+
+const logStep = (step, message) => {
+  console.log(`${COLORS.green}[STEP ${step}]${COLORS.reset} ${message}`);
+};
+
+const logData = (label, data) => {
+  console.log(`${COLORS.yellow}  → ${label}:${COLORS.reset}`, typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
+};
+
+const logError = (message) => {
+  console.log(`${COLORS.red}[ERROR]${COLORS.reset} ${message}`);
+};
+
+const logSuccess = (message) => {
+  console.log(`${COLORS.green}[SUCCESS]${COLORS.reset} ${message}`);
+};
+
 /**
  * Full ML Analysis Pipeline: Perception → Decision
  * 
@@ -13,13 +47,19 @@ export const analyzeSession = async (sessionData) => {
   try {
     const { transcript, audioRefs, sessionId } = sessionData;
 
+    logSection(`ML ANALYSIS PIPELINE - Session: ${sessionId}`);
     logger.info(`Starting ML analysis for session: ${sessionId}`);
 
     // Extract user responses and interviewer questions from transcript
     const userMessages = transcript.filter((m) => m.role === 'user');
     const assistantMessages = transcript.filter((m) => m.role === 'assistant');
 
+    logStep(1, 'Extracting transcript data');
+    logData('User messages count', userMessages.length);
+    logData('Assistant messages count', assistantMessages.length);
+
     if (userMessages.length === 0) {
+      logError('No user messages in transcript, using placeholder');
       logger.warn('No user messages in transcript, using placeholder');
       return generatePlaceholderAnalysis(transcript);
     }
@@ -27,31 +67,61 @@ export const analyzeSession = async (sessionData) => {
     const userResponses = userMessages.map((m) => m.content);
     const interviewerQuestions = assistantMessages.map((m) => m.content);
 
-    // Step 1: Call Perception Layer to extract features
-    logger.info(`Calling Perception Layer for session: ${sessionId}`);
+    console.log(`\n${COLORS.magenta}  User Responses:${COLORS.reset}`);
+    userResponses.forEach((r, i) => console.log(`    [${i + 1}] "${r.substring(0, 100)}${r.length > 100 ? '...' : ''}"`));
+
+    // Step 2: Call Perception Layer to extract features
+    logStep(2, `Calling Perception Layer at ${config.perceptionServiceUrl}`);
     const perceptionResult = await callPerceptionLayer(userResponses, interviewerQuestions);
 
     if (!perceptionResult) {
+      logError('Perception Layer failed - falling back to placeholder');
       logger.warn('Perception Layer failed, using placeholder');
       return generatePlaceholderAnalysis(transcript);
     }
 
-    logger.info(`Perception features extracted for session: ${sessionId}`);
+    logSuccess('Perception features extracted successfully');
+    console.log(`\n${COLORS.blue}  Extracted Features (17 text metrics):${COLORS.reset}`);
+    Object.entries(perceptionResult).forEach(([key, value]) => {
+      console.log(`    ${COLORS.yellow}${key}:${COLORS.reset} ${typeof value === 'number' ? value.toFixed(4) : value}`);
+    });
 
-    // Step 2: Call Decision Layer to score features
-    logger.info(`Calling Decision Layer for session: ${sessionId}`);
+    // Step 3: Call Decision Layer to score features
+    logStep(3, `Calling Decision Layer at ${config.decisionServiceUrl}`);
     const decisionResult = await callDecisionLayer(perceptionResult);
 
     if (!decisionResult) {
+      logError('Decision Layer failed - falling back to placeholder');
       logger.warn('Decision Layer failed, using placeholder');
       return generatePlaceholderAnalysis(transcript);
+    }
+
+    logSuccess('Decision Layer scoring completed');
+    console.log(`\n${COLORS.green}  ╔═══════════════════════════════════════╗${COLORS.reset}`);
+    console.log(`${COLORS.green}  ║        ML MODEL SCORES                ║${COLORS.reset}`);
+    console.log(`${COLORS.green}  ╠═══════════════════════════════════════╣${COLORS.reset}`);
+    console.log(`${COLORS.green}  ║  Confidence:    ${String(decisionResult.confidence).padStart(3)}                  ║${COLORS.reset}`);
+    console.log(`${COLORS.green}  ║  Clarity:       ${String(decisionResult.clarity).padStart(3)}                  ║${COLORS.reset}`);
+    console.log(`${COLORS.green}  ║  Empathy:       ${String(decisionResult.empathy).padStart(3)}                  ║${COLORS.reset}`);
+    console.log(`${COLORS.green}  ║  Communication: ${String(decisionResult.communication).padStart(3)}                  ║${COLORS.reset}`);
+    console.log(`${COLORS.green}  ║  Overall:       ${String(decisionResult.overall).padStart(3)}                  ║${COLORS.reset}`);
+    console.log(`${COLORS.green}  ╚═══════════════════════════════════════╝${COLORS.reset}`);
+
+    if (decisionResult.low_features && decisionResult.low_features.length > 0) {
+      console.log(`\n${COLORS.yellow}  Low Features Identified:${COLORS.reset}`);
+      decisionResult.low_features.forEach(f => console.log(`    - ${f}`));
     }
 
     logger.info(`ML analysis completed for session: ${sessionId}`);
     logger.info(`Scores: confidence=${decisionResult.confidence}, clarity=${decisionResult.clarity}, empathy=${decisionResult.empathy}, communication=${decisionResult.communication}`);
 
-    // Step 3: Generate feedback based on scores and low features
+    // Step 4: Generate feedback based on scores and low features
+    logStep(4, 'Generating feedback from ML scores');
     const feedback = generateFeedbackFromScores(decisionResult);
+
+    console.log(`\n${COLORS.cyan}${'═'.repeat(70)}${COLORS.reset}`);
+    console.log(`${COLORS.bright}${COLORS.green}  ✓ ML ANALYSIS COMPLETE - USING REAL ML SCORES${COLORS.reset}`);
+    console.log(`${COLORS.cyan}${'═'.repeat(70)}${COLORS.reset}\n`);
 
     return {
       scores: {
@@ -65,6 +135,8 @@ export const analyzeSession = async (sessionData) => {
       features: perceptionResult,
     };
   } catch (error) {
+    logError(`ML Analysis error: ${error.message}`);
+    console.log(`${COLORS.red}  Stack: ${error.stack}${COLORS.reset}`);
     logger.error(`ML Analysis error: ${error.message}`);
     return generatePlaceholderAnalysis(sessionData.transcript);
   }
@@ -75,38 +147,66 @@ export const analyzeSession = async (sessionData) => {
  */
 const callPerceptionLayer = async (userResponses, interviewerQuestions) => {
   try {
+    console.log(`${COLORS.yellow}  Checking Perception service health...${COLORS.reset}`);
+    
     // Check if perception service is available
     const healthCheck = await fetch(`${config.perceptionServiceUrl}/health`, {
       method: 'GET',
-    }).catch(() => null);
+    }).catch((err) => {
+      console.log(`${COLORS.red}  Health check failed: ${err.message}${COLORS.reset}`);
+      return null;
+    });
 
     if (!healthCheck?.ok) {
+      console.log(`${COLORS.red}  Perception service not responding at ${config.perceptionServiceUrl}${COLORS.reset}`);
       logger.warn('Perception service not available');
       return null;
     }
+    
+    console.log(`${COLORS.green}  ✓ Perception service is healthy${COLORS.reset}`);
 
     // Call /analyze/text endpoint
+    const requestBody = {
+      user_responses: userResponses,
+      interviewer_questions: interviewerQuestions,
+      response_durations: null,
+    };
+    
+    console.log(`${COLORS.yellow}  Sending request to ${config.perceptionServiceUrl}/analyze/text${COLORS.reset}`);
+    console.log(`${COLORS.yellow}  Request payload: ${userResponses.length} user responses, ${interviewerQuestions.length} questions${COLORS.reset}`);
+    
     const response = await fetch(`${config.perceptionServiceUrl}/analyze/text`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        user_responses: userResponses,
-        interviewer_questions: interviewerQuestions,
-        response_durations: null, // We don't have duration data for text-only
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.log(`${COLORS.red}  Perception API error: ${response.status}${COLORS.reset}`);
+      console.log(`${COLORS.red}  Response: ${errorText}${COLORS.reset}`);
       logger.error(`Perception Layer error: ${response.status} - ${errorText}`);
       return null;
     }
 
     const result = await response.json();
-    return result.text_metrics || result.raw_metrics;
+    console.log(`${COLORS.green}  ✓ Received response from Perception Layer${COLORS.reset}`);
+    
+    // IMPORTANT: Use raw_metrics (not normalized text_metrics) for Decision Layer
+    // Decision Layer expects raw values (e.g., avg_sentence_length >= 1)
+    // text_metrics are normalized to 0-1 range which causes validation errors
+    const metrics = result.raw_metrics || result.text_metrics;
+    if (!metrics) {
+      console.log(`${COLORS.red}  No metrics in response: ${JSON.stringify(result)}${COLORS.reset}`);
+      return null;
+    }
+    
+    console.log(`${COLORS.blue}  Using raw_metrics for Decision Layer (not normalized)${COLORS.reset}`);
+    return metrics;
   } catch (error) {
+    console.log(`${COLORS.red}  Perception Layer exception: ${error.message}${COLORS.reset}`);
     logger.error(`Perception Layer call failed: ${error.message}`);
     return null;
   }
@@ -117,15 +217,23 @@ const callPerceptionLayer = async (userResponses, interviewerQuestions) => {
  */
 const callDecisionLayer = async (textMetrics) => {
   try {
+    console.log(`${COLORS.yellow}  Checking Decision service health...${COLORS.reset}`);
+    
     // Check if decision service is available
     const healthCheck = await fetch(`${config.decisionServiceUrl}/health`, {
       method: 'GET',
-    }).catch(() => null);
+    }).catch((err) => {
+      console.log(`${COLORS.red}  Health check failed: ${err.message}${COLORS.reset}`);
+      return null;
+    });
 
     if (!healthCheck?.ok) {
+      console.log(`${COLORS.red}  Decision service not responding at ${config.decisionServiceUrl}${COLORS.reset}`);
       logger.warn('Decision service not available');
       return null;
     }
+    
+    console.log(`${COLORS.green}  ✓ Decision service is healthy${COLORS.reset}`);
 
     // Prepare the request with text metrics (audio/video will be null for text-only)
     const scoreRequest = {
@@ -133,6 +241,9 @@ const callDecisionLayer = async (textMetrics) => {
       audio_metrics: null,
       video_metrics: null,
     };
+
+    console.log(`${COLORS.yellow}  Sending features to ${config.decisionServiceUrl}/score${COLORS.reset}`);
+    console.log(`${COLORS.yellow}  Feature count: ${Object.keys(textMetrics).length} text metrics${COLORS.reset}`);
 
     const response = await fetch(`${config.decisionServiceUrl}/score`, {
       method: 'POST',
@@ -144,12 +255,18 @@ const callDecisionLayer = async (textMetrics) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.log(`${COLORS.red}  Decision API error: ${response.status}${COLORS.reset}`);
+      console.log(`${COLORS.red}  Response: ${errorText}${COLORS.reset}`);
       logger.error(`Decision Layer error: ${response.status} - ${errorText}`);
       return null;
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log(`${COLORS.green}  ✓ Received scores from Decision Layer${COLORS.reset}`);
+    
+    return result;
   } catch (error) {
+    console.log(`${COLORS.red}  Decision Layer exception: ${error.message}${COLORS.reset}`);
     logger.error(`Decision Layer call failed: ${error.message}`);
     return null;
   }

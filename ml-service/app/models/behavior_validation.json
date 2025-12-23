@@ -4,21 +4,21 @@
       "feature": "silence_ratio",
       "expected": "negative",
       "actual": "negative",
-      "correlation": -0.3080639503404506,
+      "correlation": -0.8600089450769012,
       "match": true
     },
     {
       "feature": "audio_nervous_prob",
       "expected": "negative",
       "actual": "negative",
-      "correlation": -0.42483001184383096,
+      "correlation": -0.9064800780526296,
       "match": true
     },
     {
       "feature": "assertive_phrase_ratio",
       "expected": "positive",
       "actual": "positive",
-      "correlation": 0.38619217419785573,
+      "correlation": 0.8724642074530105,
       "match": true
     }
   ],
@@ -27,21 +27,21 @@
       "feature": "topic_drift_ratio",
       "expected": "negative",
       "actual": "negative",
-      "correlation": -0.392525317168761,
+      "correlation": -0.9277298462286148,
       "match": true
     },
     {
       "feature": "semantic_relevance_mean",
       "expected": "positive",
       "actual": "positive",
-      "correlation": 0.3375755135694411,
+      "correlation": 0.9742067030618528,
       "match": true
     },
     {
       "feature": "filler_word_ratio",
       "expected": "negative",
       "actual": "negative",
-      "correlation": -0.26578881124931436,
+      "correlation": -0.5435972981422231,
       "match": true
     }
   ],
@@ -50,21 +50,21 @@
       "feature": "empathy_phrase_ratio",
       "expected": "positive",
       "actual": "positive",
-      "correlation": 0.26050309209225503,
+      "correlation": 0.9357595288053134,
       "match": true
     },
     {
       "feature": "avg_sentiment",
       "expected": "positive",
       "actual": "positive",
-      "correlation": 0.23309374332228636,
+      "correlation": 0.9104150704640565,
       "match": true
     },
     {
       "feature": "audio_calm_prob",
       "expected": "positive",
       "actual": "positive",
-      "correlation": 0.21375735600457396,
+      "correlation": 0.9088626959722679,
       "match": true
     }
   ],
@@ -73,21 +73,21 @@
       "feature": "monotony_score",
       "expected": "negative",
       "actual": "negative",
-      "correlation": -0.30722921116576307,
+      "correlation": -0.8584530568500683,
       "match": true
     },
     {
       "feature": "semantic_relevance_mean",
       "expected": "positive",
       "actual": "positive",
-      "correlation": 0.2981133629638244,
+      "correlation": 0.9043038412950861,
       "match": true
     },
     {
       "feature": "filler_word_ratio",
       "expected": "negative",
       "actual": "negative",
-      "correlation": -0.2958260427507641,
+      "correlation": -0.6536411002637821,
       "match": true
     }
   ]

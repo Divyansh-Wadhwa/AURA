@@ -1,109 +1,99 @@
 {
   "confidence": [
     {
-      "feature": "audio_nervous_prob",
-      "importance": 0.1674764211082635,
-      "suggestion": "Practice speaking with more calm and steady tone"
-    },
-    {
-      "feature": "assertive_phrase_ratio",
-      "importance": 0.1304458234646049,
-      "suggestion": "Use more assertive language ('I did', 'I achieved')"
-    },
-    {
       "feature": "audio_confidence_prob",
-      "importance": 0.1264822491915509,
+      "importance": 0.7537192497224293,
       "suggestion": "Project confidence through your voice"
     },
     {
-      "feature": "silence_ratio",
-      "importance": 0.11026409757575031,
-      "suggestion": "Reduce pauses and hesitation in your responses"
+      "feature": "assertive_phrase_ratio",
+      "importance": 0.060702519819138906,
+      "suggestion": "Use more assertive language ('I did', 'I achieved')"
     },
     {
-      "feature": "monotony_score",
-      "importance": 0.09402007454204794,
-      "suggestion": "Add more variation to your voice tone and pace"
+      "feature": "pause_frequency",
+      "importance": 0.05448513836993004,
+      "suggestion": "Reduce the number of pauses in your speech"
+    },
+    {
+      "feature": "audio_nervous_prob",
+      "importance": 0.048749982320226225,
+      "suggestion": "Practice speaking with more calm and steady tone"
     }
   ],
   "clarity": [
     {
-      "feature": "topic_drift_ratio",
-      "importance": 0.18353038922058545,
-      "suggestion": "Stay more focused on the question being asked"
-    },
-    {
       "feature": "semantic_relevance_mean",
-      "importance": 0.15305462700872535,
+      "importance": 0.8400109413740178,
       "suggestion": "Keep your answers relevant to the topic"
     },
     {
-      "feature": "energy_variance",
-      "importance": 0.10813764711415799,
-      "suggestion": "Add more energy variation to keep engagement"
+      "feature": "response_length_consistency",
+      "importance": 0.10573821862908239,
+      "suggestion": "Aim for consistent response lengths"
     },
     {
-      "feature": "hedge_ratio",
-      "importance": 0.08116223441209645,
-      "suggestion": "Use more definitive language instead of hedging phrases"
+      "feature": "topic_drift_ratio",
+      "importance": 0.0418907083537399,
+      "suggestion": "Stay more focused on the question being asked"
     },
     {
       "feature": "filler_word_ratio",
-      "importance": 0.08066471963410303,
+      "importance": 0.006977250110516087,
       "suggestion": "Minimize filler words like 'um', 'uh', 'like'"
+    },
+    {
+      "feature": "sentence_length_std",
+      "importance": 0.0006481922290668586,
+      "suggestion": "Use more consistent sentence structures"
     }
   ],
   "empathy": [
     {
       "feature": "empathy_phrase_ratio",
-      "importance": 0.18693470707835033,
+      "importance": 0.6039139530975673,
       "suggestion": "Use more empathetic language ('I understand', 'I see')"
     },
     {
-      "feature": "reflective_response_ratio",
-      "importance": 0.16737751301462145,
-      "suggestion": "Show understanding by reflecting back key points"
-    },
-    {
-      "feature": "energy_variance",
-      "importance": 0.16301431298796187,
-      "suggestion": "Add more energy variation to keep engagement"
-    },
-    {
       "feature": "audio_calm_prob",
-      "importance": 0.10396859657494215,
+      "importance": 0.19665064981774266,
       "suggestion": "Speak with a calm and composed manner"
     },
     {
+      "feature": "avg_sentiment",
+      "importance": 0.13887415874201814,
+      "suggestion": "Maintain a more positive and warm tone"
+    },
+    {
+      "feature": "reflective_response_ratio",
+      "importance": 0.04171821102941223,
+      "suggestion": "Show understanding by reflecting back key points"
+    },
+    {
       "feature": "question_back_ratio",
-      "importance": 0.0924987823326688,
+      "importance": 0.013641902913646604,
       "suggestion": "Ask clarifying questions to show engagement"
     }
   ],
   "communication": [
     {
-      "feature": "monotony_score",
-      "importance": 0.11041850406781473,
-      "suggestion": "Add more variation to your voice tone and pace"
-    },
-    {
-      "feature": "topic_drift_ratio",
-      "importance": 0.11020026002501808,
-      "suggestion": "Stay more focused on the question being asked"
-    },
-    {
-      "feature": "filler_word_ratio",
-      "importance": 0.10209085638112832,
-      "suggestion": "Minimize filler words like 'um', 'uh', 'like'"
-    },
-    {
       "feature": "semantic_relevance_mean",
-      "importance": 0.09166886232197782,
+      "importance": 0.6869626861512722,
       "suggestion": "Keep your answers relevant to the topic"
     },
     {
+      "feature": "monotony_score",
+      "importance": 0.13236891151049204,
+      "suggestion": "Add more variation to your voice tone and pace"
+    },
+    {
+      "feature": "eye_contact_ratio",
+      "importance": 0.07720222392462582,
+      "suggestion": "Maintain more consistent eye contact"
+    },
+    {
       "feature": "emotion_consistency",
-      "importance": 0.08677783592536507,
+      "importance": 0.06257821384980611,
       "suggestion": "Keep your emotional tone consistent"
     }
   ]
