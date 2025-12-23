@@ -14,6 +14,11 @@ const config = {
   jwtSecret: process.env.JWT_SECRET || 'fallback_secret_change_in_production',
   jwtExpiresIn: '7d',
   groqApiKey: process.env.GROQ_API_KEY,
+  // Perception Layer - extracts features from text/audio/video
+  perceptionServiceUrl: process.env.PERCEPTION_SERVICE_URL || 'http://localhost:5001',
+  // Decision Layer - scores features using ML models
+  decisionServiceUrl: process.env.DECISION_SERVICE_URL || 'http://localhost:8000',
+  // Legacy alias (for backward compatibility)
   mlServiceUrl: process.env.ML_SERVICE_URL || 'http://localhost:8000',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
 };

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "AURA Perception Layer"
     debug: bool = False
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 5001
     
     # Model paths (can be overridden via env vars)
     sentence_transformer_model: str = "all-MiniLM-L6-v2"

@@ -1,6 +1,7 @@
 import Session from '../models/Session.model.js';
 import User from '../models/User.model.js';
 import { generateInterviewerResponse } from '../services/llm.service.js';
+import { analyzeSession } from '../services/ml.service.js';
 import logger from '../utils/logger.js';
 
 export const startSession = async (req, res, next) => {
@@ -255,53 +256,74 @@ Important guidelines:
 };
 
 const triggerMLAnalysis = async (sessionId) => {
-  // Placeholder for ML service integration
-  // Will be implemented when ML service is ready
   logger.info(`ML Analysis triggered for session: ${sessionId}`);
   
-  // For now, mark session as completed with placeholder scores
-  setTimeout(async () => {
+  try {
+    const session = await Session.findById(sessionId);
+    if (!session || session.status !== 'analyzing') {
+      logger.warn(`Session ${sessionId} not found or not in analyzing state`);
+      return;
+    }
+
+    // Call the ML service to analyze the session
+    const analysisResult = await analyzeSession({
+      sessionId: session._id.toString(),
+      transcript: session.transcript,
+      audioRefs: session.audioRefs || [],
+    });
+
+    // Update session with analysis results
+    session.status = 'completed';
+    session.scores = {
+      confidence: analysisResult.scores.confidence,
+      clarity: analysisResult.scores.clarity,
+      empathy: analysisResult.scores.empathy,
+      communication: analysisResult.scores.communication,
+      overall: analysisResult.scores.overall,
+    };
+    session.feedback = {
+      strengths: analysisResult.feedback.strengths,
+      improvements: analysisResult.feedback.improvements,
+      tips: analysisResult.feedback.tips,
+      detailedAnalysis: analysisResult.feedback.detailedAnalysis,
+    };
+    await session.save();
+
+    // Update user stats
+    const user = await User.findById(session.userId);
+    if (user) {
+      user.totalSessions = (user.totalSessions || 0) + 1;
+      const stats = await Session.getUserStats(user._id);
+      user.averageScore = stats.averageScore;
+      user.skillProgress = stats.skillAverages;
+      await user.save();
+    }
+
+    logger.info(`Session ${sessionId} analysis completed with scores: confidence=${analysisResult.scores.confidence}, clarity=${analysisResult.scores.clarity}, empathy=${analysisResult.scores.empathy}, communication=${analysisResult.scores.communication}`);
+  } catch (err) {
+    logger.error(`Error completing session analysis: ${err.message}`);
+    
+    // Mark session as completed with error state if ML fails
     try {
       const session = await Session.findById(sessionId);
       if (session && session.status === 'analyzing') {
         session.status = 'completed';
         session.scores = {
-          confidence: Math.floor(Math.random() * 30) + 60,
-          clarity: Math.floor(Math.random() * 30) + 60,
-          empathy: Math.floor(Math.random() * 30) + 60,
-          communication: Math.floor(Math.random() * 30) + 60,
-          overall: Math.floor(Math.random() * 30) + 60,
+          confidence: 70,
+          clarity: 70,
+          empathy: 70,
+          communication: 70,
+          overall: 70,
         };
         session.feedback = {
-          strengths: [
-            'Good articulation of thoughts',
-            'Maintained professional tone',
-          ],
-          improvements: [
-            'Could provide more specific examples',
-            'Consider structuring responses better',
-          ],
-          tips: [
-            'Use the STAR method for behavioral questions',
-            'Practice active listening cues',
-          ],
+          strengths: ['Completed the interview session'],
+          improvements: ['Analysis service temporarily unavailable'],
+          tips: ['Try again later for detailed feedback'],
         };
         await session.save();
-
-        // Update user stats
-        const user = await User.findById(session.userId);
-        if (user) {
-          user.totalSessions += 1;
-          const stats = await Session.getUserStats(user._id);
-          user.averageScore = stats.averageScore;
-          user.skillProgress = stats.skillAverages;
-          await user.save();
-        }
-
-        logger.info(`Session ${sessionId} analysis completed`);
       }
-    } catch (err) {
-      logger.error(`Error completing session analysis: ${err.message}`);
+    } catch (saveErr) {
+      logger.error(`Error saving fallback session: ${saveErr.message}`);
     }
-  }, 3000);
+  }
 };
