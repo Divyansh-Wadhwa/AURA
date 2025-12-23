@@ -1,5 +1,5 @@
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 from pydantic_settings import BaseSettings
 
 
@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # Normalization settings
     use_zscore_normalization: bool = False  # Use min-max for stable scaling
     normalization_clip_range: Tuple[float, float] = (-2.0, 2.0)
+    
+    # LLM Perception (Groq)
+    groq_api_key: Optional[str] = None
+    enable_llm_perception: bool = True
     
     class Config:
         env_file = ".env"

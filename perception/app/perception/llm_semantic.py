@@ -1,7 +1,7 @@
 """
 LLM-Assisted Semantic Perception Module
 ========================================
-Uses LLM to extract semantic features that keywords/heuristics cannot detect:
+Uses LLM (via Groq) to extract semantic features that keywords/heuristics cannot detect:
 - Implicit confidence (not just assertive phrases)
 - Semantic clarity (beyond topic relevance)
 - Answer depth (substance vs fluff)
@@ -12,6 +12,8 @@ IMPORTANT: LLM is a PERCEPTION ASSISTANT, not a SCORER.
 - Outputs numeric features only (0-1 range)
 - No explanations, no judgments, no final scores
 - Features feed into the decision layer like any other perception output
+
+Provider: Groq (fast inference with Llama/Mixtral models)
 """
 
 import os
@@ -21,13 +23,14 @@ from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 import numpy as np
 
-# Try to import OpenAI client
+# Try to import Groq client
 try:
-    from openai import OpenAI, AsyncOpenAI
-    OPENAI_AVAILABLE = True
+    from groq import Groq, AsyncGroq
+    GROQ_AVAILABLE = True
+    print("[LLMSemantic] Groq client loaded successfully")
 except ImportError:
-    OPENAI_AVAILABLE = False
-    print("[LLMSemantic] OpenAI not available - LLM features will be disabled")
+    GROQ_AVAILABLE = False
+    print("[LLMSemantic] Groq not available - LLM features will be disabled")
 
 
 @dataclass
@@ -67,49 +70,51 @@ Output format (ONLY this JSON, nothing else):
 
 class LLMSemanticAnalyzer:
     """
-    Uses LLM to extract semantic features that traditional NLP cannot detect.
+    Uses LLM (via Groq) to extract semantic features that traditional NLP cannot detect.
     
     This is a PERCEPTION component, not a scoring component.
     All outputs are numeric features for downstream ML models.
+    
+    Provider: Groq - fast inference with Llama/Mixtral models
     """
     
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "gpt-3.5-turbo",
-        timeout: float = 10.0,
+        model: str = "llama-3.3-70b-versatile",
+        timeout: float = 30.0,
         enabled: bool = True
     ):
         """
-        Initialize the LLM analyzer.
+        Initialize the LLM analyzer with Groq.
         
         Args:
-            api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
-            model: Model to use for analysis
+            api_key: Groq API key (defaults to GROQ_API_KEY env var)
+            model: Groq model to use (llama-3.3-70b-versatile, llama-3.1-8b-instant, etc.)
             timeout: Request timeout in seconds
             enabled: Whether to enable LLM analysis
         """
         self.model = model
         self.timeout = timeout
-        self.enabled = enabled and OPENAI_AVAILABLE
+        self.enabled = enabled and GROQ_AVAILABLE
         self.client = None
         self.async_client = None
         
         if self.enabled:
-            api_key = api_key or os.environ.get("OPENAI_API_KEY")
+            api_key = api_key or os.environ.get("GROQ_API_KEY")
             if api_key:
                 try:
-                    self.client = OpenAI(api_key=api_key, timeout=timeout)
-                    self.async_client = AsyncOpenAI(api_key=api_key, timeout=timeout)
-                    print(f"[LLMSemantic] Initialized with model: {model}")
+                    self.client = Groq(api_key=api_key, timeout=timeout)
+                    self.async_client = AsyncGroq(api_key=api_key, timeout=timeout)
+                    print(f"[LLMSemantic] ✓ Groq initialized with model: {model}")
                 except Exception as e:
-                    print(f"[LLMSemantic] Failed to initialize client: {e}")
+                    print(f"[LLMSemantic] Failed to initialize Groq client: {e}")
                     self.enabled = False
             else:
-                print("[LLMSemantic] No API key found - LLM features disabled")
+                print("[LLMSemantic] No GROQ_API_KEY found - LLM features disabled")
                 self.enabled = False
         else:
-            print("[LLMSemantic] LLM analysis disabled")
+            print("[LLMSemantic] LLM analysis disabled (Groq not available)")
     
     def analyze(self, responses: List[str]) -> LLMSemanticMetrics:
         """
@@ -299,16 +304,21 @@ class FallbackLLMAnalyzer:
 
 def create_llm_analyzer(
     api_key: Optional[str] = None,
-    model: str = "gpt-3.5-turbo",
+    model: str = "llama-3.3-70b-versatile",
     enabled: bool = True
 ) -> LLMSemanticAnalyzer:
     """
-    Factory function to create an LLM analyzer.
+    Factory function to create an LLM analyzer using Groq.
     
-    Returns a real analyzer if OpenAI is available and enabled,
+    Returns a real analyzer if Groq is available and enabled,
     otherwise returns a fallback analyzer.
+    
+    Available Groq models:
+    - llama-3.3-70b-versatile (default, best quality)
+    - llama-3.1-8b-instant (faster, good quality)
+    - gemma2-9b-it (good alternative)
     """
-    if not enabled or not OPENAI_AVAILABLE:
+    if not enabled or not GROQ_AVAILABLE:
         return FallbackLLMAnalyzer()
     
     analyzer = LLMSemanticAnalyzer(api_key=api_key, model=model, enabled=enabled)
