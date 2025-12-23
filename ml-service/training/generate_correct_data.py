@@ -152,6 +152,35 @@ def generate_feature_sample(
     features["hedge_ratio"] = add_noise((1 - base_confidence) * 0.4)
     features["filler_word_ratio"] = add_noise((1 - base_confidence) * 0.3)
     
+    # NEW: Vagueness (inversely correlated with clarity and confidence)
+    # Low quality = high vagueness
+    vagueness_base = (1 - base_clarity) * 0.5 + (1 - base_confidence) * 0.3
+    features["vague_phrase_ratio"] = add_noise(vagueness_base)
+    
+    # NEW: Semantic depth metrics (Step 2)
+    # High quality = high density, high specificity, low redundancy, high depth
+    features["information_density"] = add_noise(base_clarity * 0.6 + base_confidence * 0.2 + 0.2)
+    features["specificity_score"] = add_noise(base_clarity * 0.5 + base_confidence * 0.3)
+    features["redundancy_score"] = add_noise((1 - base_clarity) * 0.5 + (1 - base_confidence) * 0.2)
+    # answer_depth_score = weighted combination of density, specificity, 1-redundancy
+    depth = (
+        0.4 * features["information_density"] +
+        0.3 * features["specificity_score"] +
+        0.3 * (1 - features["redundancy_score"])
+    )
+    features["answer_depth_score"] = np.clip(depth + np.random.uniform(-0.05, 0.05), 0, 1)
+    
+    # NEW: LLM-assisted semantic features (Step 3)
+    # These simulate what an LLM would infer about the response
+    # In production, these come from actual LLM analysis
+    features["llm_confidence_mean"] = add_noise(base_confidence * 0.8 + 0.1)
+    features["llm_clarity_mean"] = add_noise(base_clarity * 0.8 + 0.1)
+    features["llm_depth_mean"] = add_noise(features["answer_depth_score"] * 0.9 + 0.05)
+    features["llm_empathy_mean"] = add_noise(base_empathy * 0.8 + 0.1)
+    # Evasion is inversely correlated with clarity and depth
+    evasion_base = (1 - base_clarity) * 0.4 + (1 - features["answer_depth_score"]) * 0.4
+    features["llm_evasion_mean"] = add_noise(evasion_base + 0.1)
+    
     # Empathy-related text features
     features["empathy_phrase_ratio"] = add_noise(base_empathy * 0.5)
     features["reflective_response_ratio"] = add_noise(base_empathy * 0.4)
@@ -188,8 +217,9 @@ def generate_feature_sample(
     # VIDEO FEATURES - Correlated with base scores
     # =========================================================================
     
-    # Some samples have video, some don't
-    has_video = np.random.random() > 0.3  # 70% have video
+    # Many samples are text-only (simulating real usage)
+    # 60% text-only, 40% have video/audio
+    has_video = np.random.random() > 0.6
     
     if has_video:
         base_communication = (base_confidence + base_empathy + base_clarity) / 3
@@ -213,107 +243,142 @@ def calculate_scores(
     base_confidence: float,
     base_empathy: float,
     base_clarity: float,
+    is_text_only: bool = False,
 ) -> Dict[str, float]:
     """
     Calculate scores based on features using domain knowledge.
     
     This is the CORRECT mapping that the model should learn.
-    Scores are 0-100.
+    Scores are 0-100 with WIDE RANGE to differentiate performance levels.
+    
+    For text-only sessions, we rely primarily on text features.
+    For multimodal sessions, audio/video features contribute.
     """
     
     # =========================================================================
     # CONFIDENCE SCORE (0-100)
+    # High confidence: assertive language, no hedging, no fillers
+    # Low confidence: lots of hedging, fillers, uncertain language
     # =========================================================================
-    confidence_score = 0.0
     
-    # Text features contributing to confidence
-    assertive = features.get("assertive_phrase_ratio", 0.1)
+    # Text features (PRIMARY for confidence)
+    assertive = features.get("assertive_phrase_ratio", 0.0)
     hedge = features.get("hedge_ratio", 0.1)
     filler = features.get("filler_word_ratio", 0.1)
+    modal = features.get("modal_verb_ratio", 0.1)
     
-    # Audio features
+    # Audio features (SECONDARY)
     audio_conf = features.get("audio_confidence_prob", 0.5)
     audio_nerv = features.get("audio_nervous_prob", 0.3)
     silence = features.get("silence_ratio", 0.2)
-    monotony = features.get("monotony_score", 0.3)
     
-    # Weighted combination
-    confidence_score = (
-        assertive * 100 * 0.25 +           # More assertive = higher confidence
-        (1 - hedge) * 100 * 0.15 +         # Less hedging = higher confidence
-        (1 - filler) * 100 * 0.15 +        # Fewer fillers = higher confidence
-        audio_conf * 100 * 0.20 +          # Confident voice = higher confidence
-        (1 - audio_nerv) * 100 * 0.10 +    # Less nervous = higher confidence
-        (1 - silence) * 100 * 0.10 +       # Less silence = higher confidence
-        (1 - monotony) * 100 * 0.05        # Less monotone = higher confidence
-    )
+    if is_text_only:
+        # Text-only: 100% weight on text features
+        # Scale assertive up (typical range 0-0.05 maps to 0-50 points)
+        assertive_contrib = min(assertive * 20, 1.0) * 40  # 0-40 points
+        hedge_penalty = hedge * 30                         # 0-30 penalty
+        filler_penalty = filler * 25                       # 0-25 penalty
+        modal_penalty = modal * 5                          # 0-5 penalty
+        
+        confidence_score = 50 + assertive_contrib - hedge_penalty - filler_penalty - modal_penalty
+    else:
+        # Multimodal: blend text and audio
+        assertive_contrib = min(assertive * 20, 1.0) * 25
+        hedge_penalty = hedge * 20
+        filler_penalty = filler * 15
+        audio_contrib = audio_conf * 25 - audio_nerv * 15
+        silence_penalty = silence * 10
+        
+        confidence_score = 50 + assertive_contrib - hedge_penalty - filler_penalty + audio_contrib - silence_penalty
     
     # =========================================================================
     # CLARITY SCORE (0-100)
+    # CLARITY IS PRIMARILY ABOUT LINGUISTIC QUALITY, NOT TOPIC!
+    # High clarity: no fillers, no hedging, no vagueness, direct language
+    # Low clarity: lots of fillers, hedging, vague phrases, rambling
     # =========================================================================
     
-    relevance = features.get("semantic_relevance_mean", 0.7)
-    drift = features.get("topic_drift_ratio", 0.15)
     filler = features.get("filler_word_ratio", 0.1)
-    consistency = features.get("response_length_consistency", 0.5)
+    hedge = features.get("hedge_ratio", 0.1)
+    vague = features.get("vague_phrase_ratio", 0.1)
+    relevance = features.get("semantic_relevance_mean", 0.5)
+    drift = features.get("topic_drift_ratio", 0.15)
     
-    clarity_score = (
-        relevance * 100 * 0.35 +           # More relevant = higher clarity
-        (1 - drift) * 100 * 0.30 +         # Less drift = higher clarity
-        (1 - filler) * 100 * 0.15 +        # Fewer fillers = higher clarity
-        consistency * 100 * 0.20           # More consistent = higher clarity
-    )
+    # CLARITY FORMULA: Clarity must be EARNED, not assumed
+    # Base of 25, with major penalties for poor linguistic quality
+    # Filler-free speech is the #1 indicator of clarity
+    filler_clarity = (1 - min(filler * 5, 1.0)) * 30      # 0-30 points (PRIMARY)
+    hedge_clarity = (1 - min(hedge * 4, 1.0)) * 15        # 0-15 points
+    relevance_bonus = relevance * 10                       # 0-10 points
+    drift_penalty = drift * 15                             # 0-15 penalty
+    vagueness_penalty = vague * 25                         # 0-25 penalty
+    
+    # NEW: Depth-based bonus/penalty (Step 2)
+    # answer_depth_score < 0.4 = shallow response = penalty
+    # answer_depth_score > 0.6 = deep response = bonus
+    depth = features.get("answer_depth_score", 0.5)
+    depth_adjustment = (depth - 0.5) * 30                  # -15 to +15 points
+    
+    # Base of 25, build up from clarity indicators
+    clarity_score = 25 + filler_clarity + hedge_clarity + relevance_bonus + depth_adjustment - drift_penalty - vagueness_penalty
     
     # =========================================================================
     # EMPATHY SCORE (0-100)
+    # High empathy: empathy phrases, positive sentiment, reflective responses
+    # Low empathy: no empathy phrases, negative sentiment, dismissive
     # =========================================================================
     
-    empathy_phrases = features.get("empathy_phrase_ratio", 0.05)
-    reflective = features.get("reflective_response_ratio", 0.1)
-    questions = features.get("question_back_ratio", 0.1)
+    empathy_phrases = features.get("empathy_phrase_ratio", 0.0)
+    reflective = features.get("reflective_response_ratio", 0.0)
+    questions = features.get("question_back_ratio", 0.0)
     sentiment = features.get("avg_sentiment", 0)  # [-1, 1]
-    sentiment_normalized = (sentiment + 1) / 2  # [0, 1]
-    audio_calm = features.get("audio_calm_prob", 0.5)
     
-    empathy_score = (
-        empathy_phrases * 100 * 0.35 +     # More empathy phrases = higher empathy
-        reflective * 100 * 0.20 +          # More reflection = higher empathy
-        questions * 100 * 0.15 +           # More questions = higher empathy
-        sentiment_normalized * 100 * 0.15 + # More positive = higher empathy
-        audio_calm * 100 * 0.15            # Calmer voice = higher empathy
-    )
+    # Scale empathy phrases (0-1 maps to 0-50 points)
+    empathy_contrib = empathy_phrases * 50                # 0-50 points
+    reflective_contrib = reflective * 20                  # 0-20 points  
+    questions_contrib = questions * 15                    # 0-15 points
+    sentiment_contrib = (sentiment + 1) / 2 * 15          # 0-15 points (from -1,1 to 0,1 then scale)
+    
+    empathy_score = 10 + empathy_contrib + reflective_contrib + questions_contrib + sentiment_contrib
     
     # =========================================================================
     # COMMUNICATION SCORE (0-100)
+    # COMMUNICATION = clarity + confidence + professionalism
+    # Fillers/hedging/vagueness destroy communication quality
     # =========================================================================
     
-    # Communication is a blend of all skills plus some unique factors
-    relevance = features.get("semantic_relevance_mean", 0.7)
-    monotony = features.get("monotony_score", 0.3)
-    emotion_consistency = features.get("emotion_consistency", 0.6)
     filler = features.get("filler_word_ratio", 0.1)
+    hedge = features.get("hedge_ratio", 0.1)
+    vague = features.get("vague_phrase_ratio", 0.1)
+    assertive = features.get("assertive_phrase_ratio", 0.0)
+    relevance = features.get("semantic_relevance_mean", 0.5)
+    sentiment = features.get("avg_sentiment", 0)
     
-    # Video factors (if available)
-    eye_contact = features.get("eye_contact_ratio")
-    if eye_contact is None:
-        eye_contact = 0.6  # Default
+    # COMMUNICATION FORMULA: Professional communication is earned
+    # Base of 25, with penalties for poor quality
+    filler_comm = (1 - min(filler * 5, 1.0)) * 25         # 0-25 points (PRIMARY)
+    hedge_comm = (1 - min(hedge * 4, 1.0)) * 12           # 0-12 points
+    assertive_comm = assertive * 18                        # 0-18 points (confident = good comm)
+    relevance_bonus = relevance * 10                       # 0-10 points
+    sentiment_bonus = (sentiment + 1) / 2 * 8              # 0-8 points
+    vagueness_penalty = vague * 20                         # 0-20 penalty
     
-    communication_score = (
-        relevance * 100 * 0.25 +           # Relevant = better communication
-        (1 - monotony) * 100 * 0.20 +      # Varied = better communication
-        emotion_consistency * 100 * 0.15 + # Consistent emotions = better
-        (1 - filler) * 100 * 0.15 +        # Fewer fillers = better
-        eye_contact * 100 * 0.25           # Eye contact = better
-    )
+    # NEW: Depth-based bonus/penalty (Step 2)
+    # Low depth = poor communication
+    depth = features.get("answer_depth_score", 0.5)
+    depth_adjustment = (depth - 0.5) * 24                  # -12 to +12 points
     
-    # Add some noise to make it realistic
-    noise = np.random.uniform(-3, 3)
+    # Base of 25, build up from communication indicators
+    communication_score = 25 + filler_comm + hedge_comm + assertive_comm + relevance_bonus + sentiment_bonus + depth_adjustment - vagueness_penalty
+    
+    # Add small noise for realism
+    noise = np.random.uniform(-2, 2)
     
     return {
-        "confidence": np.clip(confidence_score + noise, 0, 100),
-        "clarity": np.clip(clarity_score + noise, 0, 100),
-        "empathy": np.clip(empathy_score + noise, 0, 100),
-        "communication": np.clip(communication_score + noise, 0, 100),
+        "confidence": np.clip(confidence_score + noise, 5, 95),
+        "clarity": np.clip(clarity_score + noise, 5, 95),
+        "empathy": np.clip(empathy_score + noise, 5, 95),
+        "communication": np.clip(communication_score + noise, 5, 95),
     }
 
 
@@ -328,8 +393,11 @@ def generate_dataset(n_samples: int = 5000) -> pd.DataFrame:
         # Generate features
         features, base_conf, base_emp, base_clar = generate_feature_sample(profile="random")
         
+        # Check if this is a text-only sample (no video features)
+        is_text_only = features.get("eye_contact_ratio") is None
+        
         # Calculate scores based on features
-        scores = calculate_scores(features, base_conf, base_emp, base_clar)
+        scores = calculate_scores(features, base_conf, base_emp, base_clar, is_text_only=is_text_only)
         
         # Combine into row
         row = {}

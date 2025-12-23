@@ -1,0 +1,127 @@
+# Hedge Words Lexicon
+# Words/phrases that express uncertainty or lack of commitment
+# One pattern per line, supports regex
+
+# Probability hedges
+maybe
+perhaps
+possibly
+probably
+likely
+unlikely
+conceivably
+presumably
+supposedly
+
+# Epistemic hedges (knowledge uncertainty)
+i think
+i believe
+i guess
+i suppose
+i assume
+i imagine
+i feel like
+i feel that
+it seems
+it appears
+it looks like
+it sounds like
+as far as i know
+to my knowledge
+from what i understand
+in my opinion
+in my view
+
+# Modal verb hedges
+might
+could
+would
+may
+should
+ought to
+might be
+could be
+would be
+may be
+should be
+
+# Approximators
+about
+around
+approximately
+roughly
+nearly
+almost
+somewhat
+fairly
+rather
+quite
+pretty much
+more or less
+to some extent
+to a certain degree
+in some ways
+in certain respects
+
+# Frequency hedges
+sometimes
+occasionally
+often
+frequently
+usually
+generally
+typically
+normally
+commonly
+rarely
+seldom
+
+# Quantity hedges
+some
+few
+several
+many
+most
+a bit
+a little
+a lot
+plenty of
+a number of
+
+# Conditional hedges
+if
+unless
+provided that
+assuming that
+depending on
+in case
+supposing
+
+# Tentative language
+tend to
+seem to
+appear to
+try to
+attempt to
+hope to
+plan to
+
+# Qualification hedges
+but
+however
+although
+though
+nevertheless
+nonetheless
+on the other hand
+having said that
+that said
+at the same time
+
+# Attribution hedges
+according to
+reportedly
+allegedly
+apparently
+seemingly
+evidently

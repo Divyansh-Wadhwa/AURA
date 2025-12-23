@@ -1,0 +1,153 @@
+# Vague Phrases Lexicon
+# Phrases that indicate lack of specificity or depth
+# One pattern per line, supports regex
+
+# Generic references
+something like that
+stuff like that
+things like that
+that kind of thing
+that sort of thing
+that type of thing
+those kinds of things
+those sorts of things
+and all that
+and stuff
+and things
+and whatnot
+and everything
+and so on
+and so forth
+et cetera
+etc
+
+# Vague approaches
+kind of approach
+sort of approach
+general approach
+overall approach
+basic approach
+simple approach
+certain approach
+
+# Non-specific descriptions
+in general
+generally speaking
+overall speaking
+broadly speaking
+loosely speaking
+more or less
+to some extent
+to a degree
+to an extent
+in a way
+in some way
+in many ways
+in various ways
+
+# Placeholder phrases
+a thing
+some things
+certain things
+various things
+different things
+many things
+a lot of things
+lots of things
+
+# Evasive phrases
+it depends
+that depends
+depends on the situation
+depends on circumstances
+case by case
+varies
+it varies
+hard to say
+difficult to say
+tough to say
+not sure
+not certain
+not really sure
+cannot say for sure
+who knows
+
+# Abstract fillers
+the thing is
+the fact is
+the point is
+the issue is
+the problem is
+the reality is
+what happens is
+what i do is
+
+# Vague time references
+at some point
+at times
+from time to time
+now and then
+every now and then
+once in a while
+sooner or later
+
+# Non-committal responses
+i would say
+i could say
+one could say
+you could say
+it could be said
+it might be said
+
+# Generic qualifiers
+pretty good
+fairly good
+pretty much
+fairly well
+reasonably well
+decent enough
+good enough
+okay enough
+fine enough
+
+# Vague quantities
+a bunch of
+a couple of
+a few of
+some of
+most of
+a handful of
+a number of
+
+# Deflection phrases
+you know how it is
+as you know
+as you can imagine
+as you might expect
+as one would expect
+needless to say
+
+# Empty intensifiers
+very much so
+definitely so
+absolutely so
+certainly so
+for sure
+of course
+naturally
+
+# Circular references
+it is what it is
+things are things
+that's just how it is
+that's the way it goes
+
+# Vague conclusions
+something along those lines
+somewhere along those lines
+in that direction
+in that area
+in that regard
+in that respect
+along those lines
+on those lines

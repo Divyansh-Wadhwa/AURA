@@ -1,0 +1,82 @@
+# Filler Words Lexicon
+# These are words/phrases that add no semantic value and indicate unclear speech
+# One pattern per line, supports regex
+
+# Classic verbal fillers
+um
+uh
+erm
+er
+ah
+eh
+hmm
+hm
+mm
+
+# Discourse markers used as fillers
+like
+you know
+i mean
+basically
+actually
+honestly
+literally
+seriously
+obviously
+clearly
+definitely
+essentially
+fundamentally
+technically
+
+# Hedging fillers
+sort of
+kind of
+kinda
+sorta
+
+# Stalling phrases
+well
+so
+anyway
+anyways
+anyhow
+right
+okay
+ok
+alright
+
+# Redundant emphatics
+really
+very
+just
+totally
+completely
+absolutely
+certainly
+
+# Verbal tics
+you see
+you know what i mean
+if you will
+as it were
+per se
+so to speak
+in a way
+in a sense
+
+# Repetitive starters
+i mean like
+so basically
+well actually
+okay so
+right so
+yeah so
+no so
+
+# Thinking fillers
+let me think
+let me see
+how do i say this
+how should i put this
+what's the word

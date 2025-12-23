@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "n_features": 38,
-  "n_text_features": 17,
+  "n_features": 48,
+  "n_text_features": 27,
   "n_audio_features": 14,
   "n_video_features": 7,
   "feature_order": [
@@ -16,6 +16,16 @@
     "modal_verb_ratio",
     "hedge_ratio",
     "filler_word_ratio",
+    "vague_phrase_ratio",
+    "information_density",
+    "specificity_score",
+    "redundancy_score",
+    "answer_depth_score",
+    "llm_confidence_mean",
+    "llm_clarity_mean",
+    "llm_depth_mean",
+    "llm_empathy_mean",
+    "llm_evasion_mean",
     "empathy_phrase_ratio",
     "reflective_response_ratio",
     "question_back_ratio",
@@ -115,6 +125,66 @@
       "min": 0.0,
       "max": 1.0,
       "default": 0.1,
+      "modality": "text"
+    },
+    "vague_phrase_ratio": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.15,
+      "modality": "text"
+    },
+    "information_density": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "modality": "text"
+    },
+    "specificity_score": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.3,
+      "modality": "text"
+    },
+    "redundancy_score": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.3,
+      "modality": "text"
+    },
+    "answer_depth_score": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.4,
+      "modality": "text"
+    },
+    "llm_confidence_mean": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "modality": "text"
+    },
+    "llm_clarity_mean": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "modality": "text"
+    },
+    "llm_depth_mean": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "modality": "text"
+    },
+    "llm_empathy_mean": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "modality": "text"
+    },
+    "llm_evasion_mean": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
       "modality": "text"
     },
     "empathy_phrase_ratio": {
@@ -299,6 +369,16 @@
     "modal_verb_ratio",
     "hedge_ratio",
     "filler_word_ratio",
+    "vague_phrase_ratio",
+    "information_density",
+    "specificity_score",
+    "redundancy_score",
+    "answer_depth_score",
+    "llm_confidence_mean",
+    "llm_clarity_mean",
+    "llm_depth_mean",
+    "llm_empathy_mean",
+    "llm_evasion_mean",
     "empathy_phrase_ratio",
     "reflective_response_ratio",
     "question_back_ratio",

@@ -17,7 +17,7 @@ import numpy as np
 # FROZEN FEATURE ORDER (DO NOT CHANGE)
 # =============================================================================
 
-# Text metrics (17 features)
+# Text metrics (27 features) - Updated with vagueness + semantic depth + LLM metrics
 TEXT_FEATURES: List[str] = [
     "semantic_relevance_mean",      # 0: Cosine similarity to topic centroid
     "semantic_relevance_std",       # 1: Variance in topic adherence
@@ -30,12 +30,22 @@ TEXT_FEATURES: List[str] = [
     "modal_verb_ratio",             # 8: Ratio of modal verbs (might, could)
     "hedge_ratio",                  # 9: Ratio of hedging phrases
     "filler_word_ratio",            # 10: Ratio of filler words
-    "empathy_phrase_ratio",         # 11: Ratio of empathy phrases
-    "reflective_response_ratio",    # 12: Ratio of reflective responses
-    "question_back_ratio",          # 13: Ratio of questions asked back
-    "avg_sentiment",                # 14: Mean sentiment score [-1, 1]
-    "sentiment_variance",           # 15: Variance in sentiment
-    "negative_spike_count",         # 16: Count of negative sentiment spikes
+    "vague_phrase_ratio",           # 11: Ratio of vague/non-specific phrases
+    "information_density",          # 12: Content words / total words (Step 2)
+    "specificity_score",            # 13: Named entities / sentences (Step 2)
+    "redundancy_score",             # 14: Avg similarity between sentences (Step 2)
+    "answer_depth_score",           # 15: Weighted depth score (Step 2)
+    "llm_confidence_mean",          # 16: LLM-inferred implicit confidence (Step 3)
+    "llm_clarity_mean",             # 17: LLM-inferred semantic clarity (Step 3)
+    "llm_depth_mean",               # 18: LLM-inferred answer depth (Step 3)
+    "llm_empathy_mean",             # 19: LLM-inferred empathy (Step 3)
+    "llm_evasion_mean",             # 20: LLM-inferred evasion probability (Step 3)
+    "empathy_phrase_ratio",         # 21: Ratio of empathy phrases
+    "reflective_response_ratio",    # 22: Ratio of reflective responses
+    "question_back_ratio",          # 23: Ratio of questions asked back
+    "avg_sentiment",                # 24: Mean sentiment score [-1, 1]
+    "sentiment_variance",           # 25: Variance in sentiment
+    "negative_spike_count",         # 26: Count of negative sentiment spikes
 ]
 
 # Audio metrics (14 features)
@@ -93,6 +103,16 @@ FEATURE_METADATA: Dict[str, Dict] = {
     "modal_verb_ratio": {"min": 0.0, "max": 1.0, "default": 0.1, "modality": "text"},
     "hedge_ratio": {"min": 0.0, "max": 1.0, "default": 0.1, "modality": "text"},
     "filler_word_ratio": {"min": 0.0, "max": 1.0, "default": 0.1, "modality": "text"},
+    "vague_phrase_ratio": {"min": 0.0, "max": 1.0, "default": 0.15, "modality": "text"},
+    "information_density": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "text"},
+    "specificity_score": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "text"},
+    "redundancy_score": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "text"},
+    "answer_depth_score": {"min": 0.0, "max": 1.0, "default": 0.4, "modality": "text"},
+    "llm_confidence_mean": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "text"},
+    "llm_clarity_mean": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "text"},
+    "llm_depth_mean": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "text"},
+    "llm_empathy_mean": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "text"},
+    "llm_evasion_mean": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "text"},
     "empathy_phrase_ratio": {"min": 0.0, "max": 1.0, "default": 0.05, "modality": "text"},
     "reflective_response_ratio": {"min": 0.0, "max": 1.0, "default": 0.1, "modality": "text"},
     "question_back_ratio": {"min": 0.0, "max": 1.0, "default": 0.1, "modality": "text"},
