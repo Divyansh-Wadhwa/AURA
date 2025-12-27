@@ -7,11 +7,14 @@
  * 3. Access token is used for API calls (Bearer token)
  * 4. User info synced with backend on first login
  */
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
+
+// Module-level flag to prevent double init in StrictMode
+let globalInitLock = false;
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -37,7 +40,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
-  const [hasInitialized, setHasInitialized] = useState(false);
+  
+  // Use ref to track initialization (survives StrictMode remount)
+  const initRef = useRef(false);
 
   /**
    * Sync Auth0 user with backend
@@ -71,7 +76,7 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Get access token and sync user on Auth0 authentication
-   * Critical: Keep loading=true until auth state is fully resolved
+   * Uses sessionStorage to track sync state across component remounts
    */
   useEffect(() => {
     // Don't do anything while Auth0 is still loading
@@ -79,30 +84,42 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    // Already initialized - don't run again
-    if (hasInitialized) {
+    // Check if already synced for this user (survives HMR and StrictMode)
+    const syncedUserId = sessionStorage.getItem('aura_synced_user');
+    const currentUserId = auth0User?.sub;
+    
+    // If we've already synced this user, just restore state
+    if (syncedUserId && syncedUserId === currentUserId && initRef.current) {
+      if (loading) setLoading(false);
       return;
     }
 
-    // Mark as initialized IMMEDIATELY to prevent re-runs during async operations
-    setHasInitialized(true);
+    // Prevent concurrent init with both ref and module lock
+    if (initRef.current || globalInitLock) {
+      if (loading) setLoading(false);
+      return;
+    }
+
+    // Lock immediately
+    initRef.current = true;
+    globalInitLock = true;
 
     const initAuth = async () => {
-      // Clear any old legacy tokens to prevent conflicts
+      // Clear any old legacy tokens
       localStorage.removeItem('aura_token');
       
       if (auth0IsAuthenticated && auth0User) {
         try {
-          // Get access token for API calls
           const token = await getAccessTokenSilently();
           setAccessToken(token);
-          
-          // Set token in API defaults
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
           // Sync with backend
           const syncedUser = await syncUserWithBackend(token, auth0User);
           setUser(syncedUser);
+          
+          // Mark this user as synced in sessionStorage
+          sessionStorage.setItem('aura_synced_user', auth0User.sub);
         } catch (err) {
           console.error('[Auth] Token retrieval failed:', err);
           setError('Failed to authenticate. Please try again.');
@@ -111,10 +128,10 @@ export const AuthProvider = ({ children }) => {
         // Not authenticated - clear state
         setUser(null);
         setAccessToken(null);
+        sessionStorage.removeItem('aura_synced_user');
         delete api.defaults.headers.common['Authorization'];
       }
       
-      // Stop loading after auth state is resolved
       setLoading(false);
     };
 
@@ -143,7 +160,10 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setUser(null);
     setAccessToken(null);
-    setHasInitialized(false); // Reset so next login will sync
+    // Reset locks and session tracking so next login will sync
+    initRef.current = false;
+    globalInitLock = false;
+    sessionStorage.removeItem('aura_synced_user');
     delete api.defaults.headers.common['Authorization'];
     
     auth0Logout({
