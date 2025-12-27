@@ -10,6 +10,7 @@ import WebRTCService from '../services/webrtc';
 import VideoCall from '../components/Video/VideoCall';
 import VideoControls from '../components/Video/VideoControls';
 import ChatPanel from '../components/Chat/ChatPanel';
+import VoiceBlob from '../components/Audio/VoiceBlob';
 import SessionTimer from '../components/Session/SessionTimer';
 import SessionHeader from '../components/Session/SessionHeader';
 import TranscriptionDisplay from '../components/Session/TranscriptionDisplay';
@@ -36,6 +37,13 @@ const InterviewSession = () => {
   const [currentTranscription, setCurrentTranscription] = useState('');
   const [recordingChunkCount, setRecordingChunkCount] = useState(0);
   const [recordingAudioSize, setRecordingAudioSize] = useState(0);
+  
+  // Voice blob states
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const audioElementRef = useRef(null);
 
   // Media states
   const [localStream, setLocalStream] = useState(null);
@@ -49,7 +57,7 @@ const InterviewSession = () => {
 
   const interactionMode = currentSession?.interactionMode || INTERACTION_MODES.TEXT_ONLY;
   const isLiveMode = interactionMode === INTERACTION_MODES.LIVE;
-  const [videoModeEnabled, setVideoModeEnabled] = useState(false);
+  const [videoModeEnabled, setVideoModeEnabled] = useState(false); // Default to audio-only in live mode
 
   // Video perception state
   const [videoMetrics, setVideoMetrics] = useState(null);
@@ -198,6 +206,56 @@ const InterviewSession = () => {
     } else {
       console.log('[Recording] Recorder not active, nothing to stop');
     }
+  }, []);
+
+  // Audio level analyzer for voice blob
+  const setupAudioAnalyzer = useCallback((audioElement) => {
+    if (!audioElement) return;
+    
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      const source = audioContextRef.current.createMediaElementSource(audioElement);
+      const analyser = audioContextRef.current.createAnalyser();
+      analyser.fftSize = 256;
+      
+      source.connect(analyser);
+      analyser.connect(audioContextRef.current.destination);
+      analyserRef.current = analyser;
+      
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      const updateLevel = () => {
+        if (!analyserRef.current) return;
+        
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        const normalizedLevel = Math.min(1, average / 128);
+        setAudioLevel(normalizedLevel);
+        
+        if (isAISpeaking) {
+          requestAnimationFrame(updateLevel);
+        }
+      };
+      
+      updateLevel();
+    } catch (err) {
+      console.error('[AudioAnalyzer] Setup error:', err);
+    }
+  }, [isAISpeaking]);
+
+  // Handle AI audio playback state
+  const handleAIAudioPlay = useCallback(() => {
+    setIsAISpeaking(true);
+    console.log('[VoiceBlob] AI started speaking');
+  }, []);
+
+  const handleAIAudioEnd = useCallback(() => {
+    setIsAISpeaking(false);
+    setAudioLevel(0);
+    console.log('[VoiceBlob] AI stopped speaking');
   }, []);
 
   // Initialize session
@@ -435,31 +493,42 @@ const InterviewSession = () => {
                   )}
                 </>
               ) : (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 mx-auto mb-4 flex items-center justify-center">
-                      <span className="text-4xl font-bold text-white">
-                        {user?.name?.charAt(0).toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                    <p className="text-white font-medium">{user?.name}</p>
-                    <p className="text-dark-400 text-sm">Live Mode - Audio Active</p>
+                /* Audio Mode - 3D Voice Blob Animation */
+                <div className="h-full relative">
+                  <VoiceBlob 
+                    isSpeaking={isAISpeaking}
+                    isListening={!isAISpeaking && !isRecordingMessage}
+                    isRecording={isRecordingMessage}
+                    audioLevel={audioLevel}
+                  />
+                  
+                  {/* Bottom UI Overlay */}
+                  <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-4 z-10">
+                    {/* Recording Button */}
                     {isRecordingMessage ? (
                       <button
                         onClick={stopMessageRecording}
-                        className="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-all cursor-pointer"
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500/20 hover:bg-red-500/30 backdrop-blur-sm rounded-full border border-red-500/30 transition-all cursor-pointer"
                       >
                         <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-red-400 text-sm font-medium">Recording... Click to STOP</span>
+                        <span className="text-red-400 text-sm font-medium">Recording... Tap to stop</span>
                       </button>
-                    ) : isAudioEnabled && (
+                    ) : (
                       <button
                         onClick={startMessageRecording}
-                        className="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-primary-500/20 hover:bg-primary-500/30 rounded-lg transition-all cursor-pointer"
+                        disabled={!isAudioEnabled || isSending || isTranscribing}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-dark-800/60 hover:bg-dark-700/60 backdrop-blur-sm rounded-full border border-dark-600/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <div className="w-3 h-3 rounded-full bg-green-500" />
-                        <span className="text-green-400 text-sm font-medium">🎤 Click HERE to Record</span>
+                        <div className={`w-3 h-3 rounded-full ${isAudioEnabled ? 'bg-primary-500' : 'bg-dark-500'}`} />
+                        <span className="text-dark-300 text-sm font-medium">
+                          {isSending ? 'Processing...' : isTranscribing ? 'Transcribing...' : 'Say something…'}
+                        </span>
                       </button>
+                    )}
+                    
+                    {/* Status indicator */}
+                    {isAISpeaking && (
+                      <span className="text-amber-400/70 text-xs font-medium">AI is speaking...</span>
                     )}
                   </div>
                 </div>
@@ -504,6 +573,8 @@ const InterviewSession = () => {
             onStopRecording={stopMessageRecording}
             isTranscribing={isTranscribing}
             autoPlayAudio={true}
+            onAudioPlay={handleAIAudioPlay}
+            onAudioEnd={handleAIAudioEnd}
           />
 
           {/* End Session Button for Text-Only Mode */}
