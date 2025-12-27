@@ -16,7 +16,7 @@ const config = {
   
   // Auth0 Configuration
   auth0Domain: process.env.AUTH0_DOMAIN,
-  auth0Audience: process.env.AUTH0_AUDIENCE || 'https://aura-api',
+  auth0Audience: process.env.AUTH0_AUDIENCE || 'https://my-api',
   
   openrouterApiKey: process.env.OPENROUTER_API_KEY,
   // Use google/gemini-2.0-flash-001 (fast, follows instructions, no reasoning overhead)
