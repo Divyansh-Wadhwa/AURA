@@ -1,11 +1,67 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.model.js';
 import config from '../config/env.js';
+import logger from '../utils/logger.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
   });
+};
+
+/**
+ * Sync Auth0 user with backend database
+ * Creates new user if doesn't exist, updates if exists
+ * Called after successful Auth0 authentication
+ */
+export const syncAuth0User = async (req, res, next) => {
+  try {
+    const { auth0Id, email, name, picture } = req.body;
+
+    if (!auth0Id || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'auth0Id and email are required',
+      });
+    }
+
+    // Find existing user by Auth0 ID or email
+    let user = await User.findOne({
+      $or: [{ auth0Id }, { email }],
+    });
+
+    if (user) {
+      // Update existing user with Auth0 info
+      user.auth0Id = auth0Id;
+      user.name = name || user.name;
+      user.avatar = picture || user.avatar;
+      user.lastLogin = new Date();
+      await user.save();
+      
+      logger.info(`[Auth0] User synced: ${email}`);
+    } else {
+      // Create new user from Auth0 data
+      user = await User.create({
+        auth0Id,
+        email,
+        name: name || email.split('@')[0],
+        avatar: picture,
+        // No password needed for Auth0 users
+        password: undefined,
+        lastLogin: new Date(),
+      });
+      
+      logger.info(`[Auth0] New user created: ${email}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.toJSON(),
+    });
+  } catch (error) {
+    logger.error(`[Auth0] Sync error: ${error.message}`);
+    next(error);
+  }
 };
 
 export const register = async (req, res, next) => {

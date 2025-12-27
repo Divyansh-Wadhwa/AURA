@@ -13,6 +13,11 @@ const config = {
   mongodbUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET || 'fallback_secret_change_in_production',
   jwtExpiresIn: '7d',
+  
+  // Auth0 Configuration
+  auth0Domain: process.env.AUTH0_DOMAIN,
+  auth0Audience: process.env.AUTH0_AUDIENCE || 'https://aura-api',
+  
   openrouterApiKey: process.env.OPENROUTER_API_KEY,
   // Use google/gemini-2.0-flash-001 (fast, follows instructions, no reasoning overhead)
   openrouterInterviewModel: process.env.OPENROUTER_INTERVIEW_MODEL || 'google/gemini-2.0-flash-001',

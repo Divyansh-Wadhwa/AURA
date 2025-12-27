@@ -1,3 +1,7 @@
+/**
+ * Session Routes
+ * All routes protected by Auth0 JWT validation
+ */
 import { Router } from 'express';
 import {
   startSession,
@@ -8,10 +12,11 @@ import {
   getUserSessions,
   getUserStats,
 } from '../controllers/session.controller.js';
-import { protect } from '../middleware/auth.middleware.js';
+import { protect } from '../middleware/auth0.middleware.js';
 
 const router = Router();
 
+// All session routes require Auth0 authentication
 router.use(protect);
 
 router.post('/start', startSession);

@@ -1,9 +1,13 @@
+/**
+ * Audio Routes
+ * Serves TTS and recorded audio files with Auth0 JWT validation
+ */
 import express from 'express';
 import { createReadStream, existsSync } from 'fs';
 import { stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import jwt from 'jsonwebtoken';
+import { auth } from 'express-oauth2-jwt-bearer';
 import config from '../config/env.js';
 import logger from '../utils/logger.js';
 
@@ -16,20 +20,37 @@ const TTS_DIR = join(__dirname, '../../uploads/tts');
 const AUDIO_DIR = join(__dirname, '../../uploads/audio');
 
 /**
- * Middleware to verify token from query param or header (for audio elements)
+ * Auth0 JWT validation for audio access
+ * Supports token in query param (for audio elements) or Authorization header
  */
-const verifyAudioAccess = (req, res, next) => {
+const verifyAudioAccess = async (req, res, next) => {
   try {
     // Check for token in query param (for audio elements) or header
-    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+    let token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
     
     if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret);
-    req.user = decoded;
-    next();
+    // Set authorization header for Auth0 middleware if token was in query
+    if (req.query.token) {
+      req.headers.authorization = `Bearer ${token}`;
+    }
+
+    // Use Auth0 JWT validation
+    const checkJwt = auth({
+      audience: config.auth0Audience,
+      issuerBaseURL: `https://${config.auth0Domain}/`,
+      tokenSigningAlg: 'RS256',
+    });
+
+    checkJwt(req, res, (err) => {
+      if (err) {
+        logger.error(`Audio auth error: ${err.message}`);
+        return res.status(401).json({ success: false, message: 'Invalid token' });
+      }
+      next();
+    });
   } catch (error) {
     logger.error(`Audio auth error: ${error.message}`);
     return res.status(401).json({ success: false, message: 'Invalid token' });

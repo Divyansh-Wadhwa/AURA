@@ -17,14 +17,26 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email'],
     },
+    // Auth0 user ID (sub claim from JWT)
+    auth0Id: {
+      type: String,
+      unique: true,
+      sparse: true, // Allows null for legacy users
+      index: true,
+    },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      // Not required for Auth0 users
+      required: false,
       minlength: [6, 'Password must be at least 6 characters'],
       select: false,
     },
     avatar: {
       type: String,
+      default: null,
+    },
+    lastLogin: {
+      type: Date,
       default: null,
     },
     totalSessions: {
