@@ -7,7 +7,7 @@
  * 3. Access token is used for API calls (Bearer token)
  * 4. User info synced with backend on first login
  */
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import api from '../services/api';
 
@@ -37,10 +37,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
-  
-  // Track if we've already synced to prevent infinite loop
-  const hasSyncedRef = useRef(false);
-  const syncingRef = useRef(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   /**
    * Sync Auth0 user with backend
@@ -74,17 +71,21 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Get access token and sync user on Auth0 authentication
-   * Only runs once per session to prevent infinite loops
+   * Critical: Keep loading=true until auth state is fully resolved
    */
   useEffect(() => {
-    const initAuth = async () => {
-      // Wait for Auth0 to finish loading
-      if (auth0Loading) return;
+    // Don't do anything while Auth0 is still loading
+    if (auth0Loading) {
+      return;
+    }
 
-      // If authenticated and not yet synced
-      if (auth0IsAuthenticated && auth0User && !hasSyncedRef.current && !syncingRef.current) {
-        syncingRef.current = true;
-        
+    // Already initialized - don't run again
+    if (hasInitialized) {
+      return;
+    }
+
+    const initAuth = async () => {
+      if (auth0IsAuthenticated && auth0User) {
         try {
           // Get access token for API calls
           const token = await getAccessTokenSilently();
@@ -93,29 +94,27 @@ export const AuthProvider = ({ children }) => {
           // Set token in API defaults
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
-          // Sync with backend (only once)
+          // Sync with backend
           const syncedUser = await syncUserWithBackend(token, auth0User);
           setUser(syncedUser);
-          hasSyncedRef.current = true;
         } catch (err) {
           console.error('[Auth] Token retrieval failed:', err);
           setError('Failed to authenticate. Please try again.');
-        } finally {
-          syncingRef.current = false;
         }
-      } else if (!auth0IsAuthenticated && !auth0Loading) {
-        // Clear auth state when logged out
+      } else {
+        // Not authenticated - clear state
         setUser(null);
         setAccessToken(null);
-        hasSyncedRef.current = false;
         delete api.defaults.headers.common['Authorization'];
       }
       
+      // Mark as initialized and stop loading
+      setHasInitialized(true);
       setLoading(false);
     };
 
     initAuth();
-  }, [auth0IsAuthenticated, auth0Loading, auth0User, getAccessTokenSilently, syncUserWithBackend]);
+  }, [auth0Loading, auth0IsAuthenticated, auth0User, getAccessTokenSilently, syncUserWithBackend, hasInitialized]);
 
   /**
    * Login - Redirects to Auth0 Universal Login
@@ -138,6 +137,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setUser(null);
     setAccessToken(null);
+    setHasInitialized(false); // Reset so next login will sync
     delete api.defaults.headers.common['Authorization'];
     
     auth0Logout({
