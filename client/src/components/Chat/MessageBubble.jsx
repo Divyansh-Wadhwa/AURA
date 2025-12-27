@@ -96,13 +96,13 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
   }
 
   return (
-    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dark-700">
+    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
       <audio ref={audioRef} src={fullAudioUrl} preload="metadata" />
       
       <button
         onClick={togglePlay}
         disabled={isLoading}
-        className="w-8 h-8 rounded-full bg-primary-500 hover:bg-primary-400 flex items-center justify-center transition-colors disabled:opacity-50"
+        className="w-8 h-8 rounded-full bg-primary-600 hover:bg-primary-500 flex items-center justify-center transition-colors disabled:opacity-50"
       >
         {isLoading ? (
           <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -113,7 +113,7 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
         )}
       </button>
 
-      <div className="flex-1 h-1 bg-dark-600 rounded-full overflow-hidden">
+      <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
         <div 
           className="h-full bg-primary-500 transition-all duration-100"
           style={{ width: `${progress}%` }}
@@ -122,7 +122,7 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
 
       <button
         onClick={toggleMute}
-        className="p-1 text-dark-400 hover:text-white transition-colors"
+        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
       >
         {isMuted ? (
           <VolumeX className="w-4 h-4" />
@@ -143,7 +143,7 @@ const MessageBubble = ({ role, content, audioUrl, autoPlayAudio = false }) => {
       <div
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
           isUser
-            ? 'bg-gradient-to-br from-accent-500 to-primary-500'
+            ? 'bg-gradient-to-br from-primary-500 to-secondary-500'
             : 'bg-gradient-to-br from-primary-600 to-secondary-600'
         }`}
       >
@@ -157,7 +157,7 @@ const MessageBubble = ({ role, content, audioUrl, autoPlayAudio = false }) => {
         className={`max-w-[80%] rounded-2xl px-4 py-3 ${
           isUser
             ? 'bg-primary-600 text-white rounded-br-md'
-            : 'bg-dark-800 text-dark-100 rounded-bl-md'
+            : 'bg-gray-100 text-gray-800 rounded-bl-md border border-gray-200'
         }`}
       >
         <p className="text-sm whitespace-pre-wrap">{content}</p>

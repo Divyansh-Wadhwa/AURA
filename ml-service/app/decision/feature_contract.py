@@ -66,17 +66,19 @@ AUDIO_FEATURES: List[str] = [
     "emotion_consistency",          # 30: Emotional stability score
 ]
 
-# Video metrics (5 features) - OPTIONAL MODALITY
+# Video metrics (7 features) - OPTIONAL MODALITY
 # These are extracted by MediaPipe in the browser
 VIDEO_FEATURES: List[str] = [
     "face_presence_ratio",          # 27: Proportion of frames with face detected
     "eye_contact_ratio",            # 28: Proportion with eye contact (facing camera)
     "head_motion_variance",         # 29: Variance in head movement (nervousness indicator)
     "facial_engagement_score",      # 30: Facial activity/engagement level
-    "video_available",              # 31: Binary flag indicating video was available
+    "smile_ratio",                  # 31: Proportion of frames with smile detected
+    "gaze_variance",                # 32: Variance in gaze direction
+    "video_available",              # 33: Binary flag indicating video was available
 ]
 
-# Complete feature vector (46 features total: 27 text + 14 audio + 5 video)
+# Complete feature vector (48 features total: 27 text + 14 audio + 7 video)
 ALL_FEATURES: List[str] = TEXT_FEATURES + AUDIO_FEATURES + VIDEO_FEATURES
 
 # Target labels
@@ -140,6 +142,8 @@ FEATURE_METADATA: Dict[str, Dict] = {
     "eye_contact_ratio": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "video", "optional": True},
     "head_motion_variance": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "video", "optional": True},
     "facial_engagement_score": {"min": 0.0, "max": 1.0, "default": 0.4, "modality": "video", "optional": True},
+    "smile_ratio": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "video", "optional": True},
+    "gaze_variance": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "video", "optional": True},
     "video_available": {"min": 0.0, "max": 1.0, "default": 0.0, "modality": "video", "optional": True},
 }
 
@@ -271,10 +275,10 @@ def export_schema() -> Dict:
 # CONSTANTS
 # =============================================================================
 
-N_FEATURES = len(ALL_FEATURES)  # 46 (27 text + 14 audio + 5 video)
+N_FEATURES = len(ALL_FEATURES)  # 48 (27 text + 14 audio + 7 video)
 N_TEXT_FEATURES = len(TEXT_FEATURES)  # 27
 N_AUDIO_FEATURES = len(AUDIO_FEATURES)  # 14
-N_VIDEO_FEATURES = len(VIDEO_FEATURES)  # 5
+N_VIDEO_FEATURES = len(VIDEO_FEATURES)  # 7
 N_TARGETS = len(TARGET_LABELS)  # 4
 
 

@@ -62,10 +62,10 @@ const Feedback = () => {
 
   if (loading && !isAnalyzing) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary-500 animate-spin mx-auto mb-4" />
-          <p className="text-dark-400">Loading feedback...</p>
+          <Loader2 className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Loading feedback...</p>
         </div>
       </div>
     );
@@ -73,16 +73,16 @@ const Feedback = () => {
 
   if (isAnalyzing) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 rounded-full bg-primary-900/50 flex items-center justify-center mx-auto mb-6">
-            <RefreshCw className="w-10 h-10 text-primary-400 animate-spin" />
+          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center mx-auto mb-6">
+            <RefreshCw className="w-10 h-10 text-primary-600 animate-spin" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Analyzing Your Session</h2>
-          <p className="text-dark-400 mb-6">
-            Our ML models are evaluating your interview performance. This usually takes a few seconds...
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Analyzing Your Session</h2>
+          <p className="text-gray-500 mb-6">
+            Our ML models are evaluating your practice session. This usually takes a few seconds...
           </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-dark-500">
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
             <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
             Processing transcript and audio features
           </div>
@@ -93,18 +93,18 @@ const Feedback = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md">
-          <div className="w-16 h-16 rounded-full bg-red-900/50 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8 text-red-400" />
+          <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Unable to Load Feedback</h2>
-          <p className="text-dark-400 mb-6">{error}</p>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Unable to Load Feedback</h2>
+          <p className="text-gray-500 mb-6">{error}</p>
           <div className="flex items-center justify-center gap-4">
-            <button onClick={loadFeedback} className="btn-primary">
+            <button onClick={loadFeedback} className="px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors">
               Try Again
             </button>
-            <Link to="/dashboard" className="btn-outline">
+            <Link to="/dashboard" className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
               Go to Dashboard
             </Link>
           </div>
@@ -117,23 +117,23 @@ const Feedback = () => {
   const overallLevel = getScoreLevel(scores?.overall || 0);
 
   return (
-    <div className="min-h-screen bg-dark-950">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-dark-800">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link
               to="/dashboard"
-              className="flex items-center gap-2 text-dark-400 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               Back to Dashboard
             </Link>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="font-semibold text-white">A.U.R.A</span>
+              <span className="font-semibold text-gray-900">AURA</span>
             </div>
           </div>
         </div>
@@ -144,17 +144,17 @@ const Feedback = () => {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">Session Feedback</h1>
-              <p className="text-dark-400">
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">Session Feedback</h1>
+              <p className="text-gray-500">
                 {SCENARIO_LABELS[scenario] || scenario} • {formatDateTime(completedAt)}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="btn-outline btn-sm flex items-center gap-2">
+              <button className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2">
                 <Share2 className="w-4 h-4" />
                 Share
               </button>
-              <button className="btn-outline btn-sm flex items-center gap-2">
+              <button className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2">
                 <Download className="w-4 h-4" />
                 Export
               </button>
@@ -163,13 +163,13 @@ const Feedback = () => {
 
           {/* Session Stats */}
           <div className="flex flex-wrap items-center gap-6 text-sm">
-            <div className="flex items-center gap-2 text-dark-400">
+            <div className="flex items-center gap-2 text-gray-500">
               <Clock className="w-4 h-4" />
-              Duration: <span className="text-white">{formatDuration(duration || 0)}</span>
+              Duration: <span className="text-gray-900 font-medium">{formatDuration(duration || 0)}</span>
             </div>
-            <div className="flex items-center gap-2 text-dark-400">
+            <div className="flex items-center gap-2 text-gray-500">
               <BarChart3 className="w-4 h-4" />
-              Overall: <span className={`font-semibold ${overallLevel.color}`}>
+              Overall: <span className="text-gray-900 font-semibold">
                 {scores?.overall}% ({overallLevel.label})
               </span>
             </div>
@@ -177,10 +177,10 @@ const Feedback = () => {
         </div>
 
         {/* Overall Score Card */}
-        <div className="card gradient-border p-8 mb-8 text-center">
-          <h2 className="text-lg text-dark-400 mb-2">Overall Performance</h2>
-          <div className="text-6xl font-bold gradient-text mb-2">{scores?.overall}%</div>
-          <p className={`text-lg ${overallLevel.color}`}>{overallLevel.label}</p>
+        <div className="bg-gradient-to-br from-primary-600 to-secondary-600 rounded-2xl p-8 mb-8 text-center shadow-lg">
+          <h2 className="text-lg text-primary-100 mb-2">Overall Performance</h2>
+          <div className="text-6xl font-bold text-white mb-2">{scores?.overall}%</div>
+          <p className="text-lg text-primary-200">{overallLevel.label}</p>
         </div>
 
         {/* Score Cards Grid */}
@@ -225,10 +225,10 @@ const Feedback = () => {
 
         {/* Action Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link to="/session/setup" className="btn-primary btn-lg">
+          <Link to="/session/setup" className="px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors">
             Practice Again
           </Link>
-          <Link to="/dashboard" className="btn-outline btn-lg">
+          <Link to="/dashboard" className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
             View All Sessions
           </Link>
         </div>

@@ -11,26 +11,40 @@ const ScoreCard = ({ title, score, icon: Icon, color = 'primary' }) => {
   };
 
   const bgClasses = {
-    primary: 'bg-primary-900/30 border-primary-700/50',
-    secondary: 'bg-secondary-900/30 border-secondary-700/50',
-    accent: 'bg-accent-900/30 border-accent-700/50',
-    yellow: 'bg-yellow-900/30 border-yellow-700/50',
+    primary: 'bg-primary-50 border-primary-200',
+    secondary: 'bg-secondary-50 border-secondary-200',
+    accent: 'bg-accent-50 border-accent-200',
+    yellow: 'bg-yellow-50 border-yellow-200',
+  };
+
+  const iconBgClasses = {
+    primary: 'bg-primary-100',
+    secondary: 'bg-secondary-100',
+    accent: 'bg-accent-100',
+    yellow: 'bg-yellow-100',
+  };
+
+  const iconColorClasses = {
+    primary: 'text-primary-600',
+    secondary: 'text-secondary-600',
+    accent: 'text-accent-600',
+    yellow: 'text-yellow-600',
   };
 
   return (
-    <div className={`card ${bgClasses[color]} border`}>
+    <div className={`bg-white rounded-xl p-5 border border-gray-200 shadow-sm`}>
       <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center`}>
-          <Icon className="w-5 h-5 text-white" />
+        <div className={`w-10 h-10 rounded-lg ${iconBgClasses[color]} flex items-center justify-center`}>
+          <Icon className={`w-5 h-5 ${iconColorClasses[color]}`} />
         </div>
-        <span className={`text-sm font-medium ${level.color}`}>{level.label}</span>
+        <span className="text-sm font-medium text-gray-500">{level.label}</span>
       </div>
-      <h3 className="text-dark-400 text-sm mb-1">{title}</h3>
+      <h3 className="text-gray-500 text-sm mb-1">{title}</h3>
       <div className="flex items-end gap-1">
-        <span className="text-3xl font-bold text-white">{score || 0}</span>
-        <span className="text-dark-500 mb-1">%</span>
+        <span className="text-3xl font-bold text-gray-900">{score || 0}</span>
+        <span className="text-gray-400 mb-1">%</span>
       </div>
-      <div className="mt-3 h-2 bg-dark-800 rounded-full overflow-hidden">
+      <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
         <div
           className={`h-full bg-gradient-to-r ${colorClasses[color]} rounded-full transition-all duration-500`}
           style={{ width: `${score || 0}%` }}

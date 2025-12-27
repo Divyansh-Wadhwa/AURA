@@ -391,17 +391,17 @@ const InterviewSession = () => {
 
   if (!currentSession) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary-500 animate-spin mx-auto mb-4" />
-          <p className="text-dark-400">Loading session...</p>
+          <Loader2 className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Loading session...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-dark-950 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <SessionHeader
         scenario={currentSession.scenario}
@@ -414,7 +414,7 @@ const InterviewSession = () => {
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Video/Audio Section */}
         {isLiveMode && (
-          <div className="lg:w-1/2 xl:w-3/5 bg-dark-900 flex flex-col">
+          <div className="lg:w-1/2 xl:w-3/5 bg-gray-900 flex flex-col">
             <div className="flex-1 relative">
               {videoModeEnabled ? (
                 <>
@@ -426,16 +426,16 @@ const InterviewSession = () => {
                   />
                   {/* Video Perception Indicator */}
                   {isVideoAnalyzing && (
-                    <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-900/80 border border-accent-700">
-                      <Eye className="w-4 h-4 text-accent-400" />
-                      <span className="text-accent-300 text-xs font-medium">
+                    <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-100 border border-primary-200">
+                      <Eye className="w-4 h-4 text-primary-600" />
+                      <span className="text-primary-700 text-xs font-medium">
                         Analyzing ({liveVideoMetrics?.total_frames || 0} frames)
                       </span>
                     </div>
                   )}
                 </>
               ) : (
-                <div className="h-full flex items-center justify-center">
+                <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
                   <div className="text-center">
                     <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 mx-auto mb-4 flex items-center justify-center">
                       <span className="text-4xl font-bold text-white">
@@ -443,7 +443,7 @@ const InterviewSession = () => {
                       </span>
                     </div>
                     <p className="text-white font-medium">{user?.name}</p>
-                    <p className="text-dark-400 text-sm">Live Mode - Audio Active</p>
+                    <p className="text-gray-400 text-sm">Live Mode - Audio Active</p>
                     {isRecordingMessage ? (
                       <button
                         onClick={stopMessageRecording}
@@ -486,9 +486,9 @@ const InterviewSession = () => {
         )}
 
         {/* Chat Section */}
-        <div className={`flex-1 flex flex-col ${isLiveMode ? 'lg:w-1/2 xl:w-2/5' : ''}`}>
+        <div className={`flex-1 flex flex-col bg-white ${isLiveMode ? 'lg:w-1/2 xl:w-2/5' : ''}`}>
           {!isLiveMode && (
-            <div className="p-4 border-b border-dark-800">
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
               <SessionTimer elapsed={elapsed} formatted={timerFormatted} />
             </div>
           )}
@@ -508,18 +508,18 @@ const InterviewSession = () => {
 
           {/* End Session Button for Text-Only Mode */}
           {!isLiveMode && (
-            <div className="p-4 border-t border-dark-800">
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={handleEndSession}
                 disabled={isEnding}
-                className="btn-danger w-full flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isEnding ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
                     <PhoneOff className="w-5 h-5" />
-                    End Interview
+                    End Session
                   </>
                 )}
               </button>
@@ -539,12 +539,12 @@ const InterviewSession = () => {
 
       {/* Error Toast */}
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg flex items-center gap-2 max-w-md z-50">
+        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl flex items-center gap-2 max-w-md z-50 shadow-lg">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm">{error}</p>
           <button
             onClick={() => setError('')}
-            className="ml-auto text-red-500 hover:text-red-400"
+            className="ml-auto text-red-500 hover:text-red-700"
           >
             ×
           </button>

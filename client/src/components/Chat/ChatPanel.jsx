@@ -55,13 +55,13 @@ const ChatPanel = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-dark-950 overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white overflow-hidden">
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
-            <div className="text-center text-dark-500">
-              <p>Start the conversation with your AI interviewer</p>
+            <div className="text-center text-gray-400">
+              <p>Start the conversation with your AI assistant</p>
               {isAudioMode && (
                 <p className="text-sm mt-2">Click the microphone to speak</p>
               )}
@@ -79,7 +79,7 @@ const ChatPanel = ({
               />
             ))}
             {isTranscribing && (
-              <div className="flex items-center gap-2 text-dark-400 text-sm">
+              <div className="flex items-center gap-2 text-gray-500 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Transcribing your speech...</span>
               </div>
@@ -91,7 +91,7 @@ const ChatPanel = ({
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-dark-800">
+      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex items-end gap-3">
           {/* Audio Record Button (for audio mode) */}
           {isAudioMode && (
@@ -102,13 +102,13 @@ const ChatPanel = ({
               className={`h-12 w-12 flex items-center justify-center rounded-xl transition-all ${
                 isRecording 
                   ? 'bg-red-500 hover:bg-red-400 animate-pulse' 
-                  : 'bg-dark-700 hover:bg-dark-600'
+                  : 'bg-gray-200 hover:bg-gray-300'
               } disabled:opacity-50`}
             >
               {isRecording ? (
                 <MicOff className="w-5 h-5 text-white" />
               ) : (
-                <Mic className="w-5 h-5 text-white" />
+                <Mic className="w-5 h-5 text-gray-600" />
               )}
             </button>
           )}
@@ -122,7 +122,7 @@ const ChatPanel = ({
               placeholder={isAudioMode ? "Or type your response..." : "Type your response..."}
               disabled={disabled || isSending || isRecording}
               rows={1}
-              className="input resize-none pr-12 min-h-[48px] max-h-32"
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 resize-none min-h-[48px] max-h-32"
               style={{
                 height: 'auto',
                 minHeight: '48px',
@@ -132,7 +132,7 @@ const ChatPanel = ({
           <button
             type="submit"
             disabled={!input.trim() || isSending || disabled || isRecording}
-            className="btn-primary h-12 w-12 flex items-center justify-center rounded-xl disabled:opacity-50"
+            className="h-12 w-12 flex items-center justify-center rounded-xl bg-primary-600 hover:bg-primary-700 text-white transition-colors disabled:opacity-50"
           >
             {isSending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -141,7 +141,7 @@ const ChatPanel = ({
             )}
           </button>
         </div>
-        <p className="text-xs text-dark-500 mt-2">
+        <p className="text-xs text-gray-400 mt-2">
           {isAudioMode 
             ? isRecording 
               ? 'Recording... Click mic to stop and send'
