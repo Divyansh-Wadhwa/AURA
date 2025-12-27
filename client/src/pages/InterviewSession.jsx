@@ -38,12 +38,8 @@ const InterviewSession = () => {
   const [recordingChunkCount, setRecordingChunkCount] = useState(0);
   const [recordingAudioSize, setRecordingAudioSize] = useState(0);
   
-  // Voice blob states
+  // Voice blob state
   const [isAISpeaking, setIsAISpeaking] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const audioElementRef = useRef(null);
 
   // Media states
   const [localStream, setLocalStream] = useState(null);
@@ -208,44 +204,6 @@ const InterviewSession = () => {
     }
   }, []);
 
-  // Audio level analyzer for voice blob
-  const setupAudioAnalyzer = useCallback((audioElement) => {
-    if (!audioElement) return;
-    
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      
-      const source = audioContextRef.current.createMediaElementSource(audioElement);
-      const analyser = audioContextRef.current.createAnalyser();
-      analyser.fftSize = 256;
-      
-      source.connect(analyser);
-      analyser.connect(audioContextRef.current.destination);
-      analyserRef.current = analyser;
-      
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      
-      const updateLevel = () => {
-        if (!analyserRef.current) return;
-        
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-        const normalizedLevel = Math.min(1, average / 128);
-        setAudioLevel(normalizedLevel);
-        
-        if (isAISpeaking) {
-          requestAnimationFrame(updateLevel);
-        }
-      };
-      
-      updateLevel();
-    } catch (err) {
-      console.error('[AudioAnalyzer] Setup error:', err);
-    }
-  }, [isAISpeaking]);
-
   // Handle AI audio playback state
   const handleAIAudioPlay = useCallback(() => {
     setIsAISpeaking(true);
@@ -254,7 +212,6 @@ const InterviewSession = () => {
 
   const handleAIAudioEnd = useCallback(() => {
     setIsAISpeaking(false);
-    setAudioLevel(0);
     console.log('[VoiceBlob] AI stopped speaking');
   }, []);
 
@@ -499,7 +456,6 @@ const InterviewSession = () => {
                     isSpeaking={isAISpeaking}
                     isListening={!isAISpeaking && !isRecordingMessage}
                     isRecording={isRecordingMessage}
-                    audioLevel={audioLevel}
                   />
                   
                   {/* Bottom UI Overlay */}
