@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, Bot, Play, Pause, Volume2, VolumeX, Loader2 } from 'lucide-react';
 
-const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
+const AudioPlayer = ({ audioUrl, token, autoPlay = false, onAudioPlay, onAudioEnd }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -23,6 +23,7 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
     const handleEnded = () => {
       setIsPlaying(false);
       setProgress(0);
+      onAudioEnd?.();
     };
 
     const handleLoadStart = () => setIsLoading(true);
@@ -30,9 +31,19 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
       setIsLoading(false);
       if (autoPlay && !hasAutoPlayed.current) {
         hasAutoPlayed.current = true;
-        audio.play().catch(() => {});
-        setIsPlaying(true);
+        audio.play().then(() => {
+          setIsPlaying(true);
+          onAudioPlay?.();
+        }).catch(() => {});
       }
+    };
+    
+    const handlePlay = () => {
+      onAudioPlay?.();
+    };
+    
+    const handlePause = () => {
+      // Don't call onAudioEnd on pause, only on ended
     };
     const handleError = () => {
       setError('Failed to load audio');
@@ -44,6 +55,8 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
     audio.addEventListener('loadstart', handleLoadStart);
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('error', handleError);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
@@ -51,6 +64,8 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
       audio.removeEventListener('loadstart', handleLoadStart);
       audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('error', handleError);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
     };
   }, [autoPlay]);
 
@@ -134,7 +149,7 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false }) => {
   );
 };
 
-const MessageBubble = ({ role, content, audioUrl, autoPlayAudio = false }) => {
+const MessageBubble = ({ role, content, audioUrl, autoPlayAudio = false, onAudioPlay, onAudioEnd }) => {
   const isUser = role === 'user';
   const token = localStorage.getItem('aura_token');
 
@@ -162,7 +177,13 @@ const MessageBubble = ({ role, content, audioUrl, autoPlayAudio = false }) => {
       >
         <p className="text-sm whitespace-pre-wrap">{content}</p>
         {audioUrl && !isUser && (
-          <AudioPlayer audioUrl={audioUrl} token={token} autoPlay={autoPlayAudio} />
+          <AudioPlayer 
+            audioUrl={audioUrl} 
+            token={token} 
+            autoPlay={autoPlayAudio}
+            onAudioPlay={onAudioPlay}
+            onAudioEnd={onAudioEnd}
+          />
         )}
       </div>
     </div>

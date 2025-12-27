@@ -15,6 +15,8 @@ const ChatPanel = ({
   onStopRecording,
   isTranscribing = false,
   autoPlayAudio = true,
+  onAudioPlay,
+  onAudioEnd,
 }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
@@ -76,6 +78,8 @@ const ChatPanel = ({
                 content={message.content}
                 audioUrl={message.audioUrl}
                 autoPlayAudio={autoPlayAudio && index === messages.length - 1 && message.role === 'assistant'}
+                onAudioPlay={onAudioPlay}
+                onAudioEnd={onAudioEnd}
               />
             ))}
             {isTranscribing && (

@@ -10,6 +10,7 @@ import WebRTCService from '../services/webrtc';
 import VideoCall from '../components/Video/VideoCall';
 import VideoControls from '../components/Video/VideoControls';
 import ChatPanel from '../components/Chat/ChatPanel';
+import VoiceBlob from '../components/Audio/VoiceBlob';
 import SessionTimer from '../components/Session/SessionTimer';
 import SessionHeader from '../components/Session/SessionHeader';
 import TranscriptionDisplay from '../components/Session/TranscriptionDisplay';
@@ -36,6 +37,9 @@ const InterviewSession = () => {
   const [currentTranscription, setCurrentTranscription] = useState('');
   const [recordingChunkCount, setRecordingChunkCount] = useState(0);
   const [recordingAudioSize, setRecordingAudioSize] = useState(0);
+  
+  // Voice blob state
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
 
   // Media states
   const [localStream, setLocalStream] = useState(null);
@@ -49,7 +53,7 @@ const InterviewSession = () => {
 
   const interactionMode = currentSession?.interactionMode || INTERACTION_MODES.TEXT_ONLY;
   const isLiveMode = interactionMode === INTERACTION_MODES.LIVE;
-  const [videoModeEnabled, setVideoModeEnabled] = useState(false);
+  const [videoModeEnabled, setVideoModeEnabled] = useState(false); // Default to audio-only in live mode
 
   // Video perception state
   const [videoMetrics, setVideoMetrics] = useState(null);
@@ -198,6 +202,17 @@ const InterviewSession = () => {
     } else {
       console.log('[Recording] Recorder not active, nothing to stop');
     }
+  }, []);
+
+  // Handle AI audio playback state
+  const handleAIAudioPlay = useCallback(() => {
+    setIsAISpeaking(true);
+    console.log('[VoiceBlob] AI started speaking');
+  }, []);
+
+  const handleAIAudioEnd = useCallback(() => {
+    setIsAISpeaking(false);
+    console.log('[VoiceBlob] AI stopped speaking');
   }, []);
 
   // Initialize session
@@ -391,17 +406,17 @@ const InterviewSession = () => {
 
   if (!currentSession) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Loading session...</p>
+          <Loader2 className="w-12 h-12 text-primary-500 animate-spin mx-auto mb-4" />
+          <p className="text-dark-400">Loading session...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-dark-950 flex flex-col">
       {/* Header */}
       <SessionHeader
         scenario={currentSession.scenario}
@@ -414,7 +429,7 @@ const InterviewSession = () => {
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Video/Audio Section */}
         {isLiveMode && (
-          <div className="lg:w-1/2 xl:w-3/5 bg-gray-900 flex flex-col">
+          <div className="lg:w-1/2 xl:w-3/5 bg-dark-900 flex flex-col">
             <div className="flex-1 relative">
               {videoModeEnabled ? (
                 <>
@@ -426,40 +441,50 @@ const InterviewSession = () => {
                   />
                   {/* Video Perception Indicator */}
                   {isVideoAnalyzing && (
-                    <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-100 border border-primary-200">
-                      <Eye className="w-4 h-4 text-primary-600" />
-                      <span className="text-primary-700 text-xs font-medium">
+                    <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-900/80 border border-accent-700">
+                      <Eye className="w-4 h-4 text-accent-400" />
+                      <span className="text-accent-300 text-xs font-medium">
                         Analyzing ({liveVideoMetrics?.total_frames || 0} frames)
                       </span>
                     </div>
                   )}
                 </>
               ) : (
-                <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                  <div className="text-center">
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 mx-auto mb-4 flex items-center justify-center">
-                      <span className="text-4xl font-bold text-white">
-                        {user?.name?.charAt(0).toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                    <p className="text-white font-medium">{user?.name}</p>
-                    <p className="text-gray-400 text-sm">Live Mode - Audio Active</p>
+                /* Audio Mode - 3D Voice Blob Animation */
+                <div className="h-full relative">
+                  <VoiceBlob 
+                    isSpeaking={isAISpeaking}
+                    isListening={!isAISpeaking && !isRecordingMessage}
+                    isRecording={isRecordingMessage}
+                  />
+                  
+                  {/* Bottom UI Overlay */}
+                  <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-4 z-10">
+                    {/* Recording Button */}
                     {isRecordingMessage ? (
                       <button
                         onClick={stopMessageRecording}
-                        className="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-all cursor-pointer"
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500/20 hover:bg-red-500/30 backdrop-blur-sm rounded-full border border-red-500/30 transition-all cursor-pointer"
                       >
                         <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-red-400 text-sm font-medium">Recording... Click to STOP</span>
+                        <span className="text-red-400 text-sm font-medium">Recording... Tap to stop</span>
                       </button>
-                    ) : isAudioEnabled && (
+                    ) : (
                       <button
                         onClick={startMessageRecording}
-                        className="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-primary-500/20 hover:bg-primary-500/30 rounded-lg transition-all cursor-pointer"
+                        disabled={!isAudioEnabled || isSending || isTranscribing}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-dark-800/60 hover:bg-dark-700/60 backdrop-blur-sm rounded-full border border-dark-600/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <div className="w-3 h-3 rounded-full bg-green-500" />
-                        <span className="text-green-400 text-sm font-medium">🎤 Click HERE to Record</span>
+                        <div className={`w-3 h-3 rounded-full ${isAudioEnabled ? 'bg-primary-500' : 'bg-dark-500'}`} />
+                        <span className="text-dark-300 text-sm font-medium">
+                          {isSending ? 'Processing...' : isTranscribing ? 'Transcribing...' : 'Say something…'}
+                        </span>
                       </button>
+                    )}
+                    
+                    {/* Status indicator */}
+                    {isAISpeaking && (
+                      <span className="text-amber-400/70 text-xs font-medium">AI is speaking...</span>
                     )}
                   </div>
                 </div>
@@ -486,9 +511,9 @@ const InterviewSession = () => {
         )}
 
         {/* Chat Section */}
-        <div className={`flex-1 flex flex-col bg-white ${isLiveMode ? 'lg:w-1/2 xl:w-2/5' : ''}`}>
+        <div className={`flex-1 flex flex-col ${isLiveMode ? 'lg:w-1/2 xl:w-2/5' : ''}`}>
           {!isLiveMode && (
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="p-4 border-b border-dark-800">
               <SessionTimer elapsed={elapsed} formatted={timerFormatted} />
             </div>
           )}
@@ -504,22 +529,24 @@ const InterviewSession = () => {
             onStopRecording={stopMessageRecording}
             isTranscribing={isTranscribing}
             autoPlayAudio={true}
+            onAudioPlay={handleAIAudioPlay}
+            onAudioEnd={handleAIAudioEnd}
           />
 
           {/* End Session Button for Text-Only Mode */}
           {!isLiveMode && (
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
+            <div className="p-4 border-t border-dark-800">
               <button
                 onClick={handleEndSession}
                 disabled={isEnding}
-                className="w-full px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="btn-danger w-full flex items-center justify-center gap-2"
               >
                 {isEnding ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
                     <PhoneOff className="w-5 h-5" />
-                    End Session
+                    End Interview
                   </>
                 )}
               </button>
@@ -539,12 +566,12 @@ const InterviewSession = () => {
 
       {/* Error Toast */}
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl flex items-center gap-2 max-w-md z-50 shadow-lg">
+        <div className="fixed bottom-4 right-4 bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg flex items-center gap-2 max-w-md z-50">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm">{error}</p>
           <button
             onClick={() => setError('')}
-            className="ml-auto text-red-500 hover:text-red-700"
+            className="ml-auto text-red-500 hover:text-red-400"
           >
             ×
           </button>
