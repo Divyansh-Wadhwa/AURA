@@ -84,6 +84,9 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    // Mark as initialized IMMEDIATELY to prevent re-runs during async operations
+    setHasInitialized(true);
+
     const initAuth = async () => {
       // Clear any old legacy tokens to prevent conflicts
       localStorage.removeItem('aura_token');
@@ -111,8 +114,7 @@ export const AuthProvider = ({ children }) => {
         delete api.defaults.headers.common['Authorization'];
       }
       
-      // Mark as initialized and stop loading
-      setHasInitialized(true);
+      // Stop loading after auth state is resolved
       setLoading(false);
     };
 
