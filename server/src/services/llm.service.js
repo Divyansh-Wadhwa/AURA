@@ -1,14 +1,49 @@
-import Groq from 'groq-sdk';
+import OpenAI from 'openai';
 import config from '../config/env.js';
 import logger from '../utils/logger.js';
 
-let groqClient = null;
+let openrouterClient = null;
 
-const initializeGroq = () => {
-  if (!groqClient && config.groqApiKey) {
-    groqClient = new Groq({ apiKey: config.groqApiKey });
+const initializeOpenRouter = () => {
+  if (!openrouterClient && config.openrouterApiKey) {
+    openrouterClient = new OpenAI({
+      apiKey: config.openrouterApiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': 'https://aura-interview.app',
+        'X-Title': 'AURA Interview System',
+      },
+    });
   }
-  return groqClient;
+  return openrouterClient;
+};
+
+/**
+ * Extract text from OpenAI-compatible response
+ * Handles OpenRouter responses using standard OpenAI format
+ * 
+ * @param {Object} response - OpenAI-compatible API response
+ * @returns {string|null} Extracted text or null if not found
+ */
+const extractOpenRouterText = (response) => {
+  try {
+    // OpenAI-compatible format: response.choices[0].message.content
+    if (!response || !response.choices || !response.choices.length) {
+      logger.error('OpenRouter returned no choices');
+      return null;
+    }
+
+    const content = response.choices[0]?.message?.content;
+    if (!content || !content.trim()) {
+      logger.error('OpenRouter response missing content');
+      return null;
+    }
+
+    return content.trim();
+  } catch (error) {
+    logger.error('Error extracting text from OpenRouter response:', error.message);
+    return null;
+  }
 };
 
 export const generateInterviewerResponse = async (
@@ -16,48 +51,88 @@ export const generateInterviewerResponse = async (
   systemPrompt
 ) => {
   try {
-    const groq = initializeGroq();
+    const client = initializeOpenRouter();
 
-    if (!groq) {
-      logger.warn('Groq not configured, using fallback responses');
+    if (!client) {
+      logger.warn('OpenRouter not configured, using fallback responses');
       return getFallbackResponse(conversationHistory);
     }
 
+    // Check if this is the first interaction (no user messages yet)
+    const hasUserMessage = conversationHistory.some(msg => msg.role === 'user');
+    
+    if (!hasUserMessage) {
+      // Session start: Return opening question WITHOUT calling OpenRouter
+      // This message is for UI display only and won't be in LLM history
+      logger.debug('Session start: Returning opening question without API call');
+      return getFallbackResponse(conversationHistory);
+    }
+
+    // Build OpenAI-compatible message history
+    // Find the index of the first user message
+    const firstUserIndex = conversationHistory.findIndex(msg => msg.role === 'user');
+    
+    // Filter history to start from first user message onward
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...conversationHistory.map((msg) => ({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content,
-      })),
+      ...conversationHistory
+        .slice(firstUserIndex)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }))
     ];
-
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+    
+    // Debug: Log history construction
+    logger.debug(`Building OpenRouter history with ${messages.length} messages`);
+    logger.debug(`First message role: ${messages[0].role}`);
+    
+    // Defensive validation: Ensure last message has content
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage?.content?.trim()) {
+      logger.error('Last user message is empty or invalid');
+      throw new Error('Last user message is empty');
+    }
+    
+    // Debug: Log the request
+    logger.debug(`Sending message to OpenRouter: ${lastMessage.content.substring(0, 100)}...`);
+    
+    const response = await client.chat.completions.create({
+      model: config.openrouterInterviewModel,
       messages,
       temperature: 0.7,
       max_tokens: 300,
       top_p: 1,
     });
-
-    const aiMessage = completion.choices[0]?.message?.content;
-
+    
+    // Debug: Log response structure and metadata
+    logger.debug('OpenRouter raw response:', JSON.stringify(response, null, 2));
+    logger.debug('OpenRouter usage:', response?.usage);
+    
+    // Use OpenAI-compatible text extraction
+    const aiMessage = extractOpenRouterText(response);
+    
     if (!aiMessage) {
-      throw new Error('No response from Groq');
+      logger.error('OpenRouter response missing usable text content');
+      logger.error('Response structure:', JSON.stringify(response, null, 2));
+      throw new Error('OpenRouter response missing usable text content');
     }
 
     logger.debug(`LLM Response generated: ${aiMessage.substring(0, 50)}...`);
     return aiMessage;
   } catch (error) {
     logger.error(`LLM Service Error: ${error.message}`);
+    logger.error('Error stack:', error.stack);
+    logger.warn('Falling back to predefined responses');
     return getFallbackResponse(conversationHistory);
   }
 };
 
 export const generateFeedbackExplanation = async (scores, transcript) => {
   try {
-    const groq = initializeGroq();
+    const client = initializeOpenRouter();
 
-    if (!groq) {
+    if (!client) {
       return getDefaultFeedbackExplanation(scores);
     }
 
@@ -73,15 +148,29 @@ Scores:
 Provide 2-3 specific strengths, 2-3 areas for improvement, and 2-3 actionable tips.
 Format as JSON with keys: strengths (array), improvements (array), tips (array)`;
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
+    const response = await client.chat.completions.create({
+      model: config.openrouterFeedbackModel,
+      messages: [
+        { role: 'system', content: 'You are a helpful interview feedback assistant. Always respond with valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
       temperature: 0.5,
       max_tokens: 500,
       response_format: { type: 'json_object' },
     });
-
-    const content = completion.choices[0]?.message?.content;
+    
+    // Debug: Log response structure and metadata
+    logger.debug('OpenRouter feedback raw response:', JSON.stringify(response, null, 2));
+    logger.debug('OpenRouter usage:', response?.usage);
+    
+    // Use OpenAI-compatible text extraction
+    const content = extractOpenRouterText(response);
+    
+    if (!content) {
+      logger.error('OpenRouter response missing usable text content');
+      logger.error('Response structure:', JSON.stringify(response, null, 2));
+      throw new Error('OpenRouter response missing usable text content');
+    }
 
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -94,11 +183,14 @@ Format as JSON with keys: strengths (array), improvements (array), tips (array)`
     }
   } catch (error) {
     logger.error(`Feedback generation error: ${error.message}`);
+    logger.error('Error stack:', error.stack);
+    logger.warn('Falling back to default feedback');
     return getDefaultFeedbackExplanation(scores);
   }
 };
 
 const getFallbackResponse = (conversationHistory) => {
+  // Count assistant messages to determine which fallback question to use
   const questionCount = conversationHistory.filter(
     (m) => m.role === 'assistant'
   ).length;

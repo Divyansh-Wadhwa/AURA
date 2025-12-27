@@ -1,7 +1,7 @@
 """
 LLM-Assisted Semantic Perception Module
 ========================================
-Uses LLM (via Groq) to extract semantic features that keywords/heuristics cannot detect:
+Uses LLM (via OpenRouter) to extract semantic features that keywords/heuristics cannot detect:
 - Implicit confidence (not just assertive phrases)
 - Semantic clarity (beyond topic relevance)
 - Answer depth (substance vs fluff)
@@ -13,7 +13,7 @@ IMPORTANT: LLM is a PERCEPTION ASSISTANT, not a SCORER.
 - No explanations, no judgments, no final scores
 - Features feed into the decision layer like any other perception output
 
-Provider: Groq (fast inference with Llama/Mixtral models)
+Provider: OpenRouter (using OpenAI-compatible API with google/gemini-2.0-flash-exp)
 """
 
 import os
@@ -23,14 +23,14 @@ from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 import numpy as np
 
-# Try to import Groq client
+# Try to import OpenAI client for OpenRouter
 try:
-    from groq import Groq, AsyncGroq
-    GROQ_AVAILABLE = True
-    print("[LLMSemantic] Groq client loaded successfully")
+    from openai import OpenAI, AsyncOpenAI
+    OPENROUTER_AVAILABLE = True
+    print("[LLMSemantic] OpenAI client loaded successfully for OpenRouter")
 except ImportError:
-    GROQ_AVAILABLE = False
-    print("[LLMSemantic] Groq not available - LLM features will be disabled")
+    OPENROUTER_AVAILABLE = False
+    print("[LLMSemantic] OpenAI client not available - LLM features will be disabled")
 
 
 @dataclass
@@ -70,51 +70,67 @@ Output format (ONLY this JSON, nothing else):
 
 class LLMSemanticAnalyzer:
     """
-    Uses LLM (via Groq) to extract semantic features that traditional NLP cannot detect.
+    Uses LLM (via OpenRouter) to extract semantic features that traditional NLP cannot detect.
     
     This is a PERCEPTION component, not a scoring component.
     All outputs are numeric features for downstream ML models.
     
-    Provider: Groq - fast inference with Llama/Mixtral models
+    Provider: OpenRouter - using OpenAI-compatible API with google/gemini-2.0-flash-exp
     """
     
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "llama-3.3-70b-versatile",
+        model: str = "google/gemini-2.0-flash-exp",
         timeout: float = 30.0,
         enabled: bool = True
     ):
         """
-        Initialize the LLM analyzer with Groq.
+        Initialize the LLM analyzer with OpenRouter.
         
         Args:
-            api_key: Groq API key (defaults to GROQ_API_KEY env var)
-            model: Groq model to use (llama-3.3-70b-versatile, llama-3.1-8b-instant, etc.)
+            api_key: OpenRouter API key (defaults to OPENROUTER_API_KEY env var)
+            model: Model identifier for OpenRouter (e.g., google/gemini-2.0-flash-exp)
             timeout: Request timeout in seconds
             enabled: Whether to enable LLM analysis
         """
         self.model = model
         self.timeout = timeout
-        self.enabled = enabled and GROQ_AVAILABLE
+        self.enabled = enabled and OPENROUTER_AVAILABLE
         self.client = None
         self.async_client = None
         
         if self.enabled:
-            api_key = api_key or os.environ.get("GROQ_API_KEY")
+            api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
             if api_key:
                 try:
-                    self.client = Groq(api_key=api_key, timeout=timeout)
-                    self.async_client = AsyncGroq(api_key=api_key, timeout=timeout)
-                    print(f"[LLMSemantic] ✓ Groq initialized with model: {model}")
+                    self.client = OpenAI(
+                        api_key=api_key,
+                        base_url="https://openrouter.ai/api/v1",
+                        timeout=timeout,
+                        default_headers={
+                            "HTTP-Referer": "https://aura-interview.app",
+                            "X-Title": "AURA Perception Layer",
+                        }
+                    )
+                    self.async_client = AsyncOpenAI(
+                        api_key=api_key,
+                        base_url="https://openrouter.ai/api/v1",
+                        timeout=timeout,
+                        default_headers={
+                            "HTTP-Referer": "https://aura-interview.app",
+                            "X-Title": "AURA Perception Layer",
+                        }
+                    )
+                    print(f"[LLMSemantic] OpenRouter initialized with model: {model}")
                 except Exception as e:
-                    print(f"[LLMSemantic] Failed to initialize Groq client: {e}")
+                    print(f"[LLMSemantic] Failed to initialize OpenRouter client: {e}")
                     self.enabled = False
             else:
-                print("[LLMSemantic] No GROQ_API_KEY found - LLM features disabled")
+                print("[LLMSemantic] No OPENROUTER_API_KEY found - LLM features disabled")
                 self.enabled = False
         else:
-            print("[LLMSemantic] LLM analysis disabled (Groq not available)")
+            print("[LLMSemantic] LLM analysis disabled (OpenRouter not available)")
     
     def analyze(self, responses: List[str]) -> LLMSemanticMetrics:
         """
@@ -192,13 +208,15 @@ class LLMSemanticAnalyzer:
             # Truncate very long responses
             response_text = response[:1500] if len(response) > 1500 else response
             
+            user_prompt = f"Analyze this interview answer:\n\"\"\"{response_text}\"\"\""
+            
             completion = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": LLM_SYSTEM_PROMPT},
-                    {"role": "user", "content": f"Analyze this interview answer:\n\"\"\"{response_text}\"\"\""}
+                    {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.1,  # Low temperature for consistent outputs
+                temperature=0.1,
                 max_tokens=100,
             )
             
@@ -214,11 +232,13 @@ class LLMSemanticAnalyzer:
         try:
             response_text = response[:1500] if len(response) > 1500 else response
             
+            user_prompt = f"Analyze this interview answer:\n\"\"\"{response_text}\"\"\""
+            
             completion = await self.async_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": LLM_SYSTEM_PROMPT},
-                    {"role": "user", "content": f"Analyze this interview answer:\n\"\"\"{response_text}\"\"\""}
+                    {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.1,
                 max_tokens=100,
@@ -304,22 +324,26 @@ class FallbackLLMAnalyzer:
 
 def create_llm_analyzer(
     api_key: Optional[str] = None,
-    model: str = "llama-3.3-70b-versatile",
+    model: Optional[str] = None,
     enabled: bool = True
 ) -> LLMSemanticAnalyzer:
     """
-    Factory function to create an LLM analyzer using Groq.
+    Factory function to create an LLM analyzer using OpenRouter.
     
-    Returns a real analyzer if Groq is available and enabled,
+    Returns a real analyzer if OpenRouter is available and enabled,
     otherwise returns a fallback analyzer.
     
-    Available Groq models:
-    - llama-3.3-70b-versatile (default, best quality)
-    - llama-3.1-8b-instant (faster, good quality)
-    - gemma2-9b-it (good alternative)
+    Available models via OpenRouter (OpenAI-compatible endpoint):
+    - google/gemini-2.5-pro (default, available on OpenAI-compatible endpoint)
+    
+    Note: Other Gemini models require @openrouter/sdk instead of openai package
     """
-    if not enabled or not GROQ_AVAILABLE:
+    if not enabled or not OPENROUTER_AVAILABLE:
         return FallbackLLMAnalyzer()
+    
+    # Use environment variable model if not specified, fallback to fast model without reasoning overhead
+    if model is None:
+        model = os.environ.get("OPENROUTER_PERCEPTION_MODEL", "google/gemini-2.0-flash-001")
     
     analyzer = LLMSemanticAnalyzer(api_key=api_key, model=model, enabled=enabled)
     if not analyzer.enabled:

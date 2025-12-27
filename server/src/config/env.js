@@ -13,7 +13,10 @@ const config = {
   mongodbUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET || 'fallback_secret_change_in_production',
   jwtExpiresIn: '7d',
-  groqApiKey: process.env.GROQ_API_KEY,
+  openrouterApiKey: process.env.OPENROUTER_API_KEY,
+  // Use google/gemini-2.0-flash-001 (fast, follows instructions, no reasoning overhead)
+  openrouterInterviewModel: process.env.OPENROUTER_INTERVIEW_MODEL || 'google/gemini-2.0-flash-001',
+  openrouterFeedbackModel: process.env.OPENROUTER_FEEDBACK_MODEL || 'google/gemini-2.0-flash-001',
   // Perception Layer - extracts features from text/audio/video
   perceptionServiceUrl: process.env.PERCEPTION_SERVICE_URL || 'http://localhost:5001',
   // Decision Layer - scores features using ML models

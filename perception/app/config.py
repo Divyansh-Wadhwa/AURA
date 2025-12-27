@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     use_zscore_normalization: bool = False  # Use min-max for stable scaling
     normalization_clip_range: Tuple[float, float] = (-2.0, 2.0)
     
-    # LLM Perception (Groq)
-    groq_api_key: Optional[str] = None
+    # LLM Perception (OpenRouter)
+    openrouter_api_key: Optional[str] = None
+    # Use google/gemini-2.0-flash-001 (fast, no reasoning overhead)
+    openrouter_perception_model: str = "google/gemini-2.0-flash-001"
     enable_llm_perception: bool = True
     
     class Config:

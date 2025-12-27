@@ -165,9 +165,12 @@ class TextPerception:
         print("[TextPerception] Initialized SemanticDepthAnalyzer")
         
         # Initialize LLM semantic analyzer (Step 3)
-        # Will use fallback if OpenAI not available
+        # Will use fallback if OpenRouter not available
+        from app.config import settings
         self.llm_analyzer = create_llm_analyzer(
-            enabled=os.environ.get("ENABLE_LLM_PERCEPTION", "true").lower() == "true"
+            api_key=settings.openrouter_api_key,
+            model=settings.openrouter_perception_model,
+            enabled=settings.enable_llm_perception
         )
         print("[TextPerception] Initialized LLMSemanticAnalyzer")
     
