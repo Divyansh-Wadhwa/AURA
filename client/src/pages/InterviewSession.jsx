@@ -11,6 +11,7 @@ import VideoCall from '../components/Video/VideoCall';
 import VideoControls from '../components/Video/VideoControls';
 import ChatPanel from '../components/Chat/ChatPanel';
 import VoiceBlob from '../components/Audio/VoiceBlob';
+import AvatarCanvas from '../components/Avatar/AvatarCanvas';
 import SessionTimer from '../components/Session/SessionTimer';
 import SessionHeader from '../components/Session/SessionHeader';
 import TranscriptionDisplay from '../components/Session/TranscriptionDisplay';
@@ -49,6 +50,7 @@ const InterviewSession = () => {
 
   const webrtcRef = useRef(null);
   const videoCallRef = useRef(null);
+  const hiddenVideoRef = useRef(null); // For video perception when avatar is shown
   const { elapsed, formatted: timerFormatted } = useSessionTimer(!!currentSession);
 
   const interactionMode = currentSession?.interactionMode || INTERACTION_MODES.TEXT_ONLY;
@@ -239,21 +241,20 @@ const InterviewSession = () => {
         // Note: We don't start background recording anymore
         // Recording only happens when user clicks the mic button
 
-        // Initialize WebRTC for video mode if enabled
+        // Initialize video perception if video mode enabled
         if (videoModeEnabled) {
-          webrtcRef.current = new WebRTCService();
-          await webrtcRef.current.initialize(constraints);
-
-          // Start video perception after a short delay to ensure video is ready
+          // Set up hidden video element for perception
           setTimeout(() => {
-            if (videoCallRef.current) {
-              const videoElement = videoCallRef.current.getLocalVideoElement();
-              if (videoElement) {
-                startVideoPerception(videoElement);
-                console.log('[InterviewSession] Video perception started');
-              }
+            if (hiddenVideoRef.current && stream) {
+              hiddenVideoRef.current.srcObject = stream;
+              hiddenVideoRef.current.play().then(() => {
+                startVideoPerception(hiddenVideoRef.current);
+                console.log('[InterviewSession] Video perception started with hidden video');
+              }).catch(err => {
+                console.error('[InterviewSession] Hidden video play error:', err);
+              });
             }
-          }, 1000);
+          }, 500);
         }
       } catch (err) {
         console.error('Media initialization error:', err);
@@ -432,23 +433,57 @@ const InterviewSession = () => {
           <div className="lg:w-1/2 xl:w-3/5 bg-dark-900 flex flex-col">
             <div className="flex-1 relative">
               {videoModeEnabled ? (
-                <>
-                  <VideoCall
-                    ref={videoCallRef}
-                    localStream={localStream}
-                    remoteStream={remoteStream}
-                    isVideoEnabled={isVideoEnabled}
+                /* Avatar Mode - 2D Cartoon Interviewer */
+                <div className="h-full relative">
+                  {/* Hidden video for video perception */}
+                  <video
+                    ref={hiddenVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="absolute opacity-0 pointer-events-none w-1 h-1"
                   />
-                  {/* Video Perception Indicator */}
+                  
+                  <AvatarCanvas
+                    isAISpeaking={isAISpeaking}
+                    isUserRecording={isRecordingMessage}
+                    isThinking={isSending}
+                  />
+                  
+                  {/* Video Perception runs in background when enabled */}
                   {isVideoAnalyzing && (
                     <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-900/80 border border-accent-700">
                       <Eye className="w-4 h-4 text-accent-400" />
                       <span className="text-accent-300 text-xs font-medium">
-                        Analyzing ({liveVideoMetrics?.total_frames || 0} frames)
+                        Video Analysis ({liveVideoMetrics?.total_frames || 0} frames)
                       </span>
                     </div>
                   )}
-                </>
+                  
+                  {/* Bottom UI Overlay for Avatar Mode */}
+                  <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-4 z-10">
+                    {isRecordingMessage ? (
+                      <button
+                        onClick={stopMessageRecording}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500/20 hover:bg-red-500/30 backdrop-blur-sm rounded-full border border-red-500/30 transition-all cursor-pointer"
+                      >
+                        <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-red-400 text-sm font-medium">Recording... Tap to stop</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={startMessageRecording}
+                        disabled={!isAudioEnabled || isSending || isTranscribing}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-dark-800/60 hover:bg-dark-700/60 backdrop-blur-sm rounded-full border border-dark-600/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className={`w-3 h-3 rounded-full ${isAudioEnabled ? 'bg-primary-500' : 'bg-dark-500'}`} />
+                        <span className="text-dark-300 text-sm font-medium">
+                          {isSending ? 'Processing...' : isTranscribing ? 'Transcribing...' : 'Say something…'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               ) : (
                 /* Audio Mode - 3D Voice Blob Animation */
                 <div className="h-full relative">
