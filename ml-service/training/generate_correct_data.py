@@ -214,22 +214,30 @@ def generate_feature_sample(
     features["emotion_consistency"] = add_noise(base_empathy * 0.5 + base_clarity * 0.3 + 0.1)
     
     # =========================================================================
-    # VIDEO FEATURES - Correlated with base scores
+    # VIDEO FEATURES - Correlated with base scores (MediaPipe browser analysis)
     # =========================================================================
     
-    # Many samples are text-only (simulating real usage)
-    # 60% text-only, 40% have video/audio
-    has_video = np.random.random() > 0.6
+    # 50% text-only, 50% have video (balanced for learning video correlations)
+    has_video = np.random.random() > 0.5
     
     if has_video:
         base_communication = (base_confidence + base_empathy + base_clarity) / 3
-        features["eye_contact_ratio"] = add_noise(base_communication * 0.7 + 0.2)
-        features["gaze_variance"] = add_noise((1 - base_communication) * 0.4)
-        features["head_turn_frequency"] = 1 + (1 - base_communication) * 5 + np.random.uniform(-0.5, 0.5)
-        features["expression_variance"] = add_noise(base_empathy * 0.4 + 0.2)
-        features["smile_ratio"] = add_noise(base_empathy * 0.5)
-        features["neutral_face_ratio"] = add_noise((1 - base_empathy) * 0.5 + 0.2)
-        features["emotion_mismatch_score"] = add_noise((1 - base_communication) * 0.3)
+        
+        # Face presence: high confidence = more camera engagement
+        features["face_presence_ratio"] = add_noise(base_confidence * 0.3 + 0.6)
+        
+        # Eye contact: high confidence + engagement = more eye contact
+        features["eye_contact_ratio"] = add_noise(base_communication * 0.5 + 0.3)
+        
+        # Head motion variance: nervous = high variance, confident = moderate variance
+        # Very low = disengaged, very high = nervous, moderate = confident
+        features["head_motion_variance"] = add_noise(0.2 + (1 - base_confidence) * 0.4)
+        
+        # Facial engagement: empathy + confidence = more facial expression
+        features["facial_engagement_score"] = add_noise(base_empathy * 0.4 + base_confidence * 0.3 + 0.2)
+        
+        # Video available flag
+        features["video_available"] = 1.0
     else:
         # Set video features to None (will be imputed)
         for feat in VIDEO_FEATURES:
@@ -272,6 +280,13 @@ def calculate_scores(
     audio_nerv = features.get("audio_nervous_prob", 0.3)
     silence = features.get("silence_ratio", 0.2)
     
+    # Video features (if available)
+    eye_contact = features.get("eye_contact_ratio", 0.5)
+    face_presence = features.get("face_presence_ratio", 0.5)
+    head_motion = features.get("head_motion_variance", 0.3)
+    facial_engagement = features.get("facial_engagement_score", 0.4)
+    video_available = features.get("video_available", 0.0)
+    
     if is_text_only:
         # Text-only: 100% weight on text features
         # Scale assertive up (typical range 0-0.05 maps to 0-50 points)
@@ -282,14 +297,25 @@ def calculate_scores(
         
         confidence_score = 50 + assertive_contrib - hedge_penalty - filler_penalty - modal_penalty
     else:
-        # Multimodal: blend text and audio
-        assertive_contrib = min(assertive * 20, 1.0) * 25
-        hedge_penalty = hedge * 20
-        filler_penalty = filler * 15
-        audio_contrib = audio_conf * 25 - audio_nerv * 15
-        silence_penalty = silence * 10
+        # Multimodal: blend text, audio, and video
+        assertive_contrib = min(assertive * 20, 1.0) * 20
+        hedge_penalty = hedge * 15
+        filler_penalty = filler * 12
+        audio_contrib = audio_conf * 20 - audio_nerv * 12
+        silence_penalty = silence * 8
         
-        confidence_score = 50 + assertive_contrib - hedge_penalty - filler_penalty + audio_contrib - silence_penalty
+        # Video contributions (when available) - SIGNIFICANT IMPACT
+        if video_available > 0:
+            eye_contact_contrib = eye_contact * 20          # 0-20 points (eye contact = confidence)
+            face_presence_contrib = face_presence * 8       # 0-8 points
+            engagement_contrib = facial_engagement * 10     # 0-10 points
+            # High head motion = nervous = penalty, moderate = normal
+            head_motion_penalty = max(0, (head_motion - 0.3)) * 20  # Penalty if motion > 0.3
+            video_contrib = eye_contact_contrib + face_presence_contrib + engagement_contrib - head_motion_penalty
+        else:
+            video_contrib = 0
+        
+        confidence_score = 45 + assertive_contrib - hedge_penalty - filler_penalty + audio_contrib - silence_penalty + video_contrib
     
     # =========================================================================
     # CLARITY SCORE (0-100)
@@ -394,7 +420,7 @@ def generate_dataset(n_samples: int = 5000) -> pd.DataFrame:
         features, base_conf, base_emp, base_clar = generate_feature_sample(profile="random")
         
         # Check if this is a text-only sample (no video features)
-        is_text_only = features.get("eye_contact_ratio") is None
+        is_text_only = features.get("video_available") is None or features.get("video_available") == 0
         
         # Calculate scores based on features
         scores = calculate_scores(features, base_conf, base_emp, base_clar, is_text_only=is_text_only)

@@ -45,10 +45,20 @@ const logSuccess = (message) => {
  */
 export const analyzeSession = async (sessionData) => {
   try {
-    const { transcript, audioRefs, sessionId } = sessionData;
+    const { transcript, audioRefs, sessionId, videoMetrics } = sessionData;
 
     logSection(`ML ANALYSIS PIPELINE - Session: ${sessionId}`);
     logger.info(`Starting ML analysis for session: ${sessionId}`);
+    
+    // Log video metrics if available
+    if (videoMetrics) {
+      console.log(`${COLORS.cyan}  Video metrics available:${COLORS.reset}`);
+      console.log(`    Face presence: ${(videoMetrics.face_presence_ratio * 100).toFixed(1)}%`);
+      console.log(`    Eye contact: ${(videoMetrics.eye_contact_ratio * 100).toFixed(1)}%`);
+      console.log(`    Frames analyzed: ${videoMetrics.total_frames}`);
+    } else {
+      console.log(`${COLORS.yellow}  No video metrics (text-only mode)${COLORS.reset}`);
+    }
 
     // Extract user responses and interviewer questions from transcript
     const userMessages = transcript.filter((m) => m.role === 'user');
@@ -87,9 +97,9 @@ export const analyzeSession = async (sessionData) => {
       console.log(`    ${COLORS.yellow}${key}:${COLORS.reset} ${typeof value === 'number' ? value.toFixed(4) : value}`);
     });
 
-    // Step 3: Call Decision Layer to score features
+    // Step 3: Call Decision Layer to score features (include video metrics)
     logStep(3, `Calling Decision Layer at ${config.decisionServiceUrl}`);
-    const decisionResult = await callDecisionLayer(perceptionResult);
+    const decisionResult = await callDecisionLayer(perceptionResult, videoMetrics);
 
     if (!decisionResult) {
       logError('Decision Layer failed - falling back to placeholder');
@@ -216,7 +226,7 @@ const callPerceptionLayer = async (userResponses, interviewerQuestions, response
 /**
  * Call Decision Layer to score features
  */
-const callDecisionLayer = async (textMetrics) => {
+const callDecisionLayer = async (textMetrics, videoMetrics = null) => {
   try {
     console.log(`${COLORS.yellow}  Checking Decision service health...${COLORS.reset}`);
     
@@ -236,15 +246,18 @@ const callDecisionLayer = async (textMetrics) => {
     
     console.log(`${COLORS.green}  ✓ Decision service is healthy${COLORS.reset}`);
 
-    // Prepare the request with text metrics (audio/video will be null for text-only)
+    // Prepare the request with text metrics and video metrics if available
     const scoreRequest = {
       text_metrics: textMetrics,
       audio_metrics: null,
-      video_metrics: null,
+      video_metrics: videoMetrics || null,
     };
 
     console.log(`${COLORS.yellow}  Sending features to ${config.decisionServiceUrl}/score${COLORS.reset}`);
     console.log(`${COLORS.yellow}  Feature count: ${Object.keys(textMetrics).length} text metrics${COLORS.reset}`);
+    if (videoMetrics) {
+      console.log(`${COLORS.cyan}  Video metrics included: face_presence=${videoMetrics.face_presence_ratio?.toFixed(2)}, eye_contact=${videoMetrics.eye_contact_ratio?.toFixed(2)}${COLORS.reset}`);
+    }
 
     const response = await fetch(`${config.decisionServiceUrl}/score`, {
       method: 'POST',

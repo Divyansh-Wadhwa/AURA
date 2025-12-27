@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
-  "n_features": 48,
+  "n_features": 46,
   "n_text_features": 27,
   "n_audio_features": 14,
-  "n_video_features": 7,
+  "n_video_features": 5,
   "feature_order": [
     "semantic_relevance_mean",
     "semantic_relevance_std",
@@ -46,13 +46,11 @@
     "audio_nervous_prob",
     "audio_calm_prob",
     "emotion_consistency",
+    "face_presence_ratio",
     "eye_contact_ratio",
-    "gaze_variance",
-    "head_turn_frequency",
-    "expression_variance",
-    "smile_ratio",
-    "neutral_face_ratio",
-    "emotion_mismatch_score"
+    "head_motion_variance",
+    "facial_engagement_score",
+    "video_available"
   ],
   "target_labels": [
     "confidence",
@@ -307,52 +305,38 @@
       "default": 0.6,
       "modality": "audio"
     },
-    "eye_contact_ratio": {
-      "min": 0.0,
-      "max": 1.0,
-      "default": 0.6,
-      "modality": "video",
-      "optional": true
-    },
-    "gaze_variance": {
-      "min": 0.0,
-      "max": 1.0,
-      "default": 0.3,
-      "modality": "video",
-      "optional": true
-    },
-    "head_turn_frequency": {
-      "min": 0.0,
-      "max": 10.0,
-      "default": 2.0,
-      "modality": "video",
-      "optional": true
-    },
-    "expression_variance": {
-      "min": 0.0,
-      "max": 1.0,
-      "default": 0.4,
-      "modality": "video",
-      "optional": true
-    },
-    "smile_ratio": {
-      "min": 0.0,
-      "max": 1.0,
-      "default": 0.3,
-      "modality": "video",
-      "optional": true
-    },
-    "neutral_face_ratio": {
+    "face_presence_ratio": {
       "min": 0.0,
       "max": 1.0,
       "default": 0.5,
       "modality": "video",
       "optional": true
     },
-    "emotion_mismatch_score": {
+    "eye_contact_ratio": {
       "min": 0.0,
       "max": 1.0,
-      "default": 0.2,
+      "default": 0.5,
+      "modality": "video",
+      "optional": true
+    },
+    "head_motion_variance": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.3,
+      "modality": "video",
+      "optional": true
+    },
+    "facial_engagement_score": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.4,
+      "modality": "video",
+      "optional": true
+    },
+    "video_available": {
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
       "modality": "video",
       "optional": true
     }
@@ -403,12 +387,10 @@
     "emotion_consistency"
   ],
   "video_features": [
+    "face_presence_ratio",
     "eye_contact_ratio",
-    "gaze_variance",
-    "head_turn_frequency",
-    "expression_variance",
-    "smile_ratio",
-    "neutral_face_ratio",
-    "emotion_mismatch_score"
+    "head_motion_variance",
+    "facial_engagement_score",
+    "video_available"
   ]
 }

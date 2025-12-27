@@ -1,9 +1,15 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { User, VideoOff } from 'lucide-react';
 
-const VideoCall = ({ localStream, remoteStream, isVideoEnabled }) => {
+const VideoCall = forwardRef(({ localStream, remoteStream, isVideoEnabled }, ref) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+
+  // Expose video element ref to parent for video perception
+  useImperativeHandle(ref, () => ({
+    getLocalVideoElement: () => localVideoRef.current,
+    getRemoteVideoElement: () => remoteVideoRef.current
+  }), []);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {
@@ -72,6 +78,6 @@ const VideoCall = ({ localStream, remoteStream, isVideoEnabled }) => {
       `}</style>
     </div>
   );
-};
+});
 
 export default VideoCall;

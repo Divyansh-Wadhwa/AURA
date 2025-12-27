@@ -136,11 +136,18 @@ export const SessionProvider = ({ children }) => {
     }
   }, []);
 
-  const endSession = useCallback(async (sessionId) => {
+  const endSession = useCallback(async (sessionId, options = {}) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.post(`/session/${sessionId}/end`);
+      
+      // Include video metrics if provided
+      const payload = {};
+      if (options.videoMetrics) {
+        payload.videoMetrics = options.videoMetrics;
+      }
+      
+      const response = await api.post(`/session/${sessionId}/end`, payload);
       setCurrentSession(null);
       return { success: true, data: response.data.data };
     } catch (err) {

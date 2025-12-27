@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import useSocket from '../hooks/useSocket';
 import { useMediaRecorder } from '../hooks/useMediaRecorder';
 import { useSessionTimer } from '../hooks/useSession';
+import { useVideoPerception } from '../hooks/useVideoPerception';
 import WebRTCService from '../services/webrtc';
 import VideoCall from '../components/Video/VideoCall';
 import VideoControls from '../components/Video/VideoControls';
@@ -16,6 +17,7 @@ import {
   PhoneOff,
   AlertCircle,
   Loader2,
+  Eye,
 } from 'lucide-react';
 import { INTERACTION_MODES } from '../utils/constants';
 
@@ -42,11 +44,29 @@ const InterviewSession = () => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
 
   const webrtcRef = useRef(null);
+  const videoCallRef = useRef(null);
   const { elapsed, formatted: timerFormatted } = useSessionTimer(!!currentSession);
 
   const interactionMode = currentSession?.interactionMode || INTERACTION_MODES.TEXT_ONLY;
   const isLiveMode = interactionMode === INTERACTION_MODES.LIVE;
   const [videoModeEnabled, setVideoModeEnabled] = useState(false);
+
+  // Video perception state
+  const [videoMetrics, setVideoMetrics] = useState(null);
+
+  // Video perception hook
+  const { 
+    startAnalysis: startVideoPerception, 
+    stopAnalysis: stopVideoPerception,
+    currentMetrics: liveVideoMetrics,
+    isAnalyzing: isVideoAnalyzing,
+    error: videoPerceptionError 
+  } = useVideoPerception({
+    enabled: videoModeEnabled,
+    onMetricsUpdate: (metrics) => {
+      setVideoMetrics(metrics);
+    }
+  });
 
   // Debug logging
   useEffect(() => {
@@ -208,6 +228,17 @@ const InterviewSession = () => {
         if (videoModeEnabled) {
           webrtcRef.current = new WebRTCService();
           await webrtcRef.current.initialize(constraints);
+
+          // Start video perception after a short delay to ensure video is ready
+          setTimeout(() => {
+            if (videoCallRef.current) {
+              const videoElement = videoCallRef.current.getLocalVideoElement();
+              if (videoElement) {
+                startVideoPerception(videoElement);
+                console.log('[InterviewSession] Video perception started');
+              }
+            }
+          }, 1000);
         }
       } catch (err) {
         console.error('Media initialization error:', err);
@@ -281,6 +312,13 @@ const InterviewSession = () => {
         setIsRecordingMessage(false);
       }
 
+      // Stop video perception and get final metrics
+      let finalVideoMetrics = null;
+      if (videoModeEnabled && isVideoAnalyzing) {
+        finalVideoMetrics = stopVideoPerception();
+        console.log('[InterviewSession] Final video metrics:', finalVideoMetrics);
+      }
+
       // Stop media tracks
       if (localStream) {
         localStream.getTracks().forEach((track) => track.stop());
@@ -289,8 +327,8 @@ const InterviewSession = () => {
       // Cleanup recorder
       cleanupRecorder();
 
-      // End session via API
-      const result = await endSession(sessionId);
+      // End session via API (include video metrics)
+      const result = await endSession(sessionId, { videoMetrics: finalVideoMetrics });
 
       if (result.success) {
         navigate(`/feedback/${sessionId}`);
@@ -379,11 +417,23 @@ const InterviewSession = () => {
           <div className="lg:w-1/2 xl:w-3/5 bg-dark-900 flex flex-col">
             <div className="flex-1 relative">
               {videoModeEnabled ? (
-                <VideoCall
-                  localStream={localStream}
-                  remoteStream={remoteStream}
-                  isVideoEnabled={isVideoEnabled}
-                />
+                <>
+                  <VideoCall
+                    ref={videoCallRef}
+                    localStream={localStream}
+                    remoteStream={remoteStream}
+                    isVideoEnabled={isVideoEnabled}
+                  />
+                  {/* Video Perception Indicator */}
+                  {isVideoAnalyzing && (
+                    <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-900/80 border border-accent-700">
+                      <Eye className="w-4 h-4 text-accent-400" />
+                      <span className="text-accent-300 text-xs font-medium">
+                        Analyzing ({liveVideoMetrics?.total_frames || 0} frames)
+                      </span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">

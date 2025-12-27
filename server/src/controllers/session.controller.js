@@ -201,6 +201,7 @@ export const sendAudioMessage = async (req, res, next) => {
 export const endSession = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
+    const { videoMetrics } = req.body || {};
 
     const session = await Session.findOne({
       _id: sessionId,
@@ -221,13 +222,19 @@ export const endSession = async (req, res, next) => {
       });
     }
 
+    // Store video metrics if provided
+    if (videoMetrics) {
+      session.videoMetrics = videoMetrics;
+      logger.info(`Video metrics received for session ${sessionId}:`, videoMetrics);
+    }
+
     session.status = 'analyzing';
     session.endedAt = new Date();
     session.calculateDuration();
     await session.save();
 
-    // Trigger ML analysis asynchronously (will be implemented later)
-    triggerMLAnalysis(session._id).catch((err) => {
+    // Trigger ML analysis asynchronously (include video metrics)
+    triggerMLAnalysis(session._id, videoMetrics).catch((err) => {
       logger.error(`ML Analysis failed for session ${session._id}: ${err.message}`);
     });
 
@@ -372,7 +379,7 @@ Example good response: "Your experience scaling backend systems at [company they
 Example bad response: "Great, thanks for coming in today. It's good." (NO - this is forbidden)`;
 };
 
-const triggerMLAnalysis = async (sessionId) => {
+const triggerMLAnalysis = async (sessionId, videoMetrics = null) => {
   logger.info(`ML Analysis triggered for session: ${sessionId}`);
   
   try {
@@ -382,11 +389,12 @@ const triggerMLAnalysis = async (sessionId) => {
       return;
     }
 
-    // Call the ML service to analyze the session
+    // Call the ML service to analyze the session (include video metrics)
     const analysisResult = await analyzeSession({
       sessionId: session._id.toString(),
       transcript: session.transcript,
       audioRefs: session.audioRefs || [],
+      videoMetrics: videoMetrics || session.videoMetrics || null,
     });
 
     // Update session with analysis results

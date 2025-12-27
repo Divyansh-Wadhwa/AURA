@@ -82,14 +82,12 @@ class AudioMetrics(BaseModel):
 
 
 class VideoMetrics(BaseModel):
-    """Video-derived metrics from perception layer (optional)."""
-    eye_contact_ratio: Optional[float] = Field(None, ge=0, le=1)
-    gaze_variance: Optional[float] = Field(None, ge=0, le=1)
-    head_turn_frequency: Optional[float] = Field(None, ge=0, le=20)
-    expression_variance: Optional[float] = Field(None, ge=0, le=1)
-    smile_ratio: Optional[float] = Field(None, ge=0, le=1)
-    neutral_face_ratio: Optional[float] = Field(None, ge=0, le=1)
-    emotion_mismatch_score: Optional[float] = Field(None, ge=0, le=1)
+    """Video-derived metrics from MediaPipe browser analysis (optional)."""
+    face_presence_ratio: Optional[float] = Field(None, ge=0, le=1, description="Proportion of frames with face detected")
+    eye_contact_ratio: Optional[float] = Field(None, ge=0, le=1, description="Proportion with eye contact (facing camera)")
+    head_motion_variance: Optional[float] = Field(None, ge=0, le=1, description="Variance in head movement")
+    facial_engagement_score: Optional[float] = Field(None, ge=0, le=1, description="Facial activity/engagement level")
+    video_available: Optional[float] = Field(None, ge=0, le=1, description="Binary flag indicating video was available")
 
 
 class ScoreRequest(BaseModel):

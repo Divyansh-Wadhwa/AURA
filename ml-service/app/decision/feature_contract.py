@@ -66,18 +66,17 @@ AUDIO_FEATURES: List[str] = [
     "emotion_consistency",          # 30: Emotional stability score
 ]
 
-# Video metrics (7 features) - OPTIONAL MODALITY
+# Video metrics (5 features) - OPTIONAL MODALITY
+# These are extracted by MediaPipe in the browser
 VIDEO_FEATURES: List[str] = [
-    "eye_contact_ratio",            # 31: Proportion with eye contact
-    "gaze_variance",                # 32: Gaze stability
-    "head_turn_frequency",          # 33: Head movements per minute
-    "expression_variance",          # 34: Facial expression variation
-    "smile_ratio",                  # 35: Proportion smiling
-    "neutral_face_ratio",           # 36: Proportion neutral expression
-    "emotion_mismatch_score",       # 37: Audio-visual emotion mismatch
+    "face_presence_ratio",          # 27: Proportion of frames with face detected
+    "eye_contact_ratio",            # 28: Proportion with eye contact (facing camera)
+    "head_motion_variance",         # 29: Variance in head movement (nervousness indicator)
+    "facial_engagement_score",      # 30: Facial activity/engagement level
+    "video_available",              # 31: Binary flag indicating video was available
 ]
 
-# Complete feature vector (38 features total)
+# Complete feature vector (46 features total: 27 text + 14 audio + 5 video)
 ALL_FEATURES: List[str] = TEXT_FEATURES + AUDIO_FEATURES + VIDEO_FEATURES
 
 # Target labels
@@ -136,14 +135,12 @@ FEATURE_METADATA: Dict[str, Dict] = {
     "audio_calm_prob": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "audio"},
     "emotion_consistency": {"min": 0.0, "max": 1.0, "default": 0.6, "modality": "audio"},
     
-    # Video features (optional)
-    "eye_contact_ratio": {"min": 0.0, "max": 1.0, "default": 0.6, "modality": "video", "optional": True},
-    "gaze_variance": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "video", "optional": True},
-    "head_turn_frequency": {"min": 0.0, "max": 10.0, "default": 2.0, "modality": "video", "optional": True},
-    "expression_variance": {"min": 0.0, "max": 1.0, "default": 0.4, "modality": "video", "optional": True},
-    "smile_ratio": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "video", "optional": True},
-    "neutral_face_ratio": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "video", "optional": True},
-    "emotion_mismatch_score": {"min": 0.0, "max": 1.0, "default": 0.2, "modality": "video", "optional": True},
+    # Video features (optional) - from MediaPipe browser analysis
+    "face_presence_ratio": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "video", "optional": True},
+    "eye_contact_ratio": {"min": 0.0, "max": 1.0, "default": 0.5, "modality": "video", "optional": True},
+    "head_motion_variance": {"min": 0.0, "max": 1.0, "default": 0.3, "modality": "video", "optional": True},
+    "facial_engagement_score": {"min": 0.0, "max": 1.0, "default": 0.4, "modality": "video", "optional": True},
+    "video_available": {"min": 0.0, "max": 1.0, "default": 0.0, "modality": "video", "optional": True},
 }
 
 
@@ -274,10 +271,10 @@ def export_schema() -> Dict:
 # CONSTANTS
 # =============================================================================
 
-N_FEATURES = len(ALL_FEATURES)  # 38
-N_TEXT_FEATURES = len(TEXT_FEATURES)  # 17
+N_FEATURES = len(ALL_FEATURES)  # 46 (27 text + 14 audio + 5 video)
+N_TEXT_FEATURES = len(TEXT_FEATURES)  # 27
 N_AUDIO_FEATURES = len(AUDIO_FEATURES)  # 14
-N_VIDEO_FEATURES = len(VIDEO_FEATURES)  # 7
+N_VIDEO_FEATURES = len(VIDEO_FEATURES)  # 5
 N_TARGETS = len(TARGET_LABELS)  # 4
 
 

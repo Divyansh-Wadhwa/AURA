@@ -75,6 +75,39 @@ const audioRefSchema = new mongoose.Schema({
   },
 });
 
+const videoMetricsSchema = new mongoose.Schema({
+  video_available: {
+    type: Number,
+    default: 0,
+  },
+  face_presence_ratio: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0,
+  },
+  eye_contact_ratio: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0,
+  },
+  head_motion_variance: {
+    type: Number,
+    default: 0,
+  },
+  facial_engagement_score: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0,
+  },
+  total_frames: {
+    type: Number,
+    default: 0,
+  },
+});
+
 const sessionSchema = new mongoose.Schema(
   {
     userId: {
@@ -115,6 +148,7 @@ const sessionSchema = new mongoose.Schema(
     },
     transcript: [messageSchema],
     audioRefs: [audioRefSchema],
+    videoMetrics: videoMetricsSchema,
     scores: scoreSchema,
     feedback: feedbackSchema,
     startedAt: {
