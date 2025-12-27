@@ -7,7 +7,7 @@
  * 3. Access token is used for API calls (Bearer token)
  * 4. User info synced with backend on first login
  */
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import api from '../services/api';
 
@@ -37,6 +37,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
+  
+  // Track if we've already synced to prevent infinite loop
+  const hasSyncedRef = useRef(false);
+  const syncingRef = useRef(false);
 
   /**
    * Sync Auth0 user with backend
@@ -70,12 +74,17 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Get access token and sync user on Auth0 authentication
+   * Only runs once per session to prevent infinite loops
    */
   useEffect(() => {
     const initAuth = async () => {
+      // Wait for Auth0 to finish loading
       if (auth0Loading) return;
 
-      if (auth0IsAuthenticated && auth0User) {
+      // If authenticated and not yet synced
+      if (auth0IsAuthenticated && auth0User && !hasSyncedRef.current && !syncingRef.current) {
+        syncingRef.current = true;
+        
         try {
           // Get access token for API calls
           const token = await getAccessTokenSilently();
@@ -84,17 +93,21 @@ export const AuthProvider = ({ children }) => {
           // Set token in API defaults
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
-          // Sync with backend
+          // Sync with backend (only once)
           const syncedUser = await syncUserWithBackend(token, auth0User);
           setUser(syncedUser);
+          hasSyncedRef.current = true;
         } catch (err) {
           console.error('[Auth] Token retrieval failed:', err);
           setError('Failed to authenticate. Please try again.');
+        } finally {
+          syncingRef.current = false;
         }
-      } else {
-        // Clear auth state
+      } else if (!auth0IsAuthenticated && !auth0Loading) {
+        // Clear auth state when logged out
         setUser(null);
         setAccessToken(null);
+        hasSyncedRef.current = false;
         delete api.defaults.headers.common['Authorization'];
       }
       
