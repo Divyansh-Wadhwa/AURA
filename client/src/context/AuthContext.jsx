@@ -88,19 +88,26 @@ export const AuthProvider = ({ children }) => {
     const syncedUserId = sessionStorage.getItem('aura_synced_user');
     const currentUserId = auth0User?.sub;
     
-    // If we've already synced this user, just restore state
-    if (syncedUserId && syncedUserId === currentUserId && initRef.current) {
+    console.log('[Auth] Init check:', { syncedUserId, currentUserId, initRef: initRef.current, globalLock: globalInitLock, loading });
+    
+    // If we've already synced this user, just restore state from sessionStorage
+    if (syncedUserId && syncedUserId === currentUserId) {
+      console.log('[Auth] Already synced, skipping');
+      initRef.current = true;
+      globalInitLock = true;
       if (loading) setLoading(false);
       return;
     }
 
     // Prevent concurrent init with both ref and module lock
     if (initRef.current || globalInitLock) {
+      console.log('[Auth] Locked, skipping');
       if (loading) setLoading(false);
       return;
     }
 
     // Lock immediately
+    console.log('[Auth] Starting sync...');
     initRef.current = true;
     globalInitLock = true;
 
