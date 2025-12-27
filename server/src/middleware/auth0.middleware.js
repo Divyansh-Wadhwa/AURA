@@ -19,11 +19,26 @@ import logger from '../utils/logger.js';
  * Auth0 JWT validation middleware
  * Uses express-oauth2-jwt-bearer for RS256 validation
  */
-export const checkJwt = auth({
+const jwtCheck = auth({
   audience: config.auth0Audience,
   issuerBaseURL: `https://${config.auth0Domain}/`,
   tokenSigningAlg: 'RS256',
 });
+
+// Wrap with error logging
+export const checkJwt = (req, res, next) => {
+  jwtCheck(req, res, (err) => {
+    if (err) {
+      logger.error(`[Auth0] JWT validation failed: ${err.message}`);
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication failed',
+        error: err.message,
+      });
+    }
+    next();
+  });
+};
 
 /**
  * Load user from database after JWT validation
