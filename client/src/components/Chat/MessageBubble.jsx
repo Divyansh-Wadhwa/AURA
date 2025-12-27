@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, Bot, Play, Pause, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const AudioPlayer = ({ audioUrl, token, autoPlay = false, onAudioPlay, onAudioEnd }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -93,13 +94,12 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false, onAudioPlay, onAudioEn
     setIsMuted(audio.muted);
   };
 
-  // Build audio URL with auth token
+  // Build audio URL with auth token (passed as prop from MessageBubble)
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  const authToken = localStorage.getItem('aura_token');
   let fullAudioUrl = audioUrl;
   if (audioUrl?.startsWith('/api/')) {
     const baseUrl = `${API_URL.replace('/api', '')}${audioUrl}`;
-    fullAudioUrl = authToken ? `${baseUrl}?token=${authToken}` : baseUrl;
+    fullAudioUrl = token ? `${baseUrl}?token=${token}` : baseUrl;
   }
 
   if (error) {
@@ -151,7 +151,7 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false, onAudioPlay, onAudioEn
 
 const MessageBubble = ({ role, content, audioUrl, autoPlayAudio = false, onAudioPlay, onAudioEnd }) => {
   const isUser = role === 'user';
-  const token = localStorage.getItem('aura_token');
+  const { accessToken } = useAuth();
 
   return (
     <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -179,7 +179,7 @@ const MessageBubble = ({ role, content, audioUrl, autoPlayAudio = false, onAudio
         {audioUrl && !isUser && (
           <AudioPlayer 
             audioUrl={audioUrl} 
-            token={token} 
+            token={accessToken} 
             autoPlay={autoPlayAudio}
             onAudioPlay={onAudioPlay}
             onAudioEnd={onAudioEnd}

@@ -85,6 +85,9 @@ export const AuthProvider = ({ children }) => {
     }
 
     const initAuth = async () => {
+      // Clear any old legacy tokens to prevent conflicts
+      localStorage.removeItem('aura_token');
+      
       if (auth0IsAuthenticated && auth0User) {
         try {
           // Get access token for API calls
@@ -114,7 +117,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     initAuth();
-  }, [auth0Loading, auth0IsAuthenticated, auth0User, getAccessTokenSilently, syncUserWithBackend, hasInitialized]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth0Loading, auth0IsAuthenticated]);
 
   /**
    * Login - Redirects to Auth0 Universal Login
