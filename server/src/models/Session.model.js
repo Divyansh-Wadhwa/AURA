@@ -89,7 +89,7 @@ const sessionSchema = new mongoose.Schema(
     },
     interactionMode: {
       type: String,
-      enum: ['text-only', 'audio-only', 'audio-video'],
+      enum: ['text-only', 'live'],
       default: 'text-only',
     },
     scenario: {

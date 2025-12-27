@@ -34,9 +34,9 @@ export const startSession = async (req, res, next) => {
 
     logger.info(`Session started: ${session._id} for user: ${req.user._id}`);
 
-    // Generate TTS audio for initial message if voice is enabled and audio mode
+    // Generate TTS audio for initial message if voice is enabled and live mode
     let audioResponse = null;
-    if (isTTSAvailable() && (interactionMode === 'audio-only' || interactionMode === 'audio-video')) {
+    if (isTTSAvailable() && interactionMode === 'live') {
       audioResponse = await textToSpeech(initialMessage, session._id.toString());
     }
 
@@ -95,10 +95,10 @@ export const sendMessage = async (req, res, next) => {
     session.addMessage('assistant', aiResponse);
     await session.save();
 
-    // Generate TTS audio for AI response if voice is enabled and audio mode
+    // Generate TTS audio for AI response if voice is enabled and live mode
     let audioResponse = null;
     const interactionMode = session.interactionMode;
-    if (isTTSAvailable() && (interactionMode === 'audio-only' || interactionMode === 'audio-video')) {
+    if (isTTSAvailable() && interactionMode === 'live') {
       audioResponse = await textToSpeech(aiResponse, sessionId);
     }
 

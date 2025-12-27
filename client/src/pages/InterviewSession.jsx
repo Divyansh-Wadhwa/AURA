@@ -45,18 +45,18 @@ const InterviewSession = () => {
   const { elapsed, formatted: timerFormatted } = useSessionTimer(!!currentSession);
 
   const interactionMode = currentSession?.interactionMode || INTERACTION_MODES.TEXT_ONLY;
-  const isVideoMode = interactionMode === INTERACTION_MODES.AUDIO_VIDEO;
-  const isAudioMode = interactionMode === INTERACTION_MODES.AUDIO_ONLY || isVideoMode;
+  const isLiveMode = interactionMode === INTERACTION_MODES.LIVE;
+  const [videoModeEnabled, setVideoModeEnabled] = useState(false);
 
   // Debug logging
   useEffect(() => {
     console.log('[InterviewSession] Mode Debug:', {
       interactionMode,
-      isAudioMode,
-      isVideoMode,
+      isLiveMode,
+      videoModeEnabled,
       currentSessionInteractionMode: currentSession?.interactionMode,
     });
-  }, [interactionMode, isAudioMode, isVideoMode, currentSession?.interactionMode]);
+  }, [interactionMode, isLiveMode, videoModeEnabled, currentSession?.interactionMode]);
 
   // Audio recording for background chunks
   const { startRecording, stopRecording, cleanup: cleanupRecorder } = useMediaRecorder({
@@ -195,7 +195,7 @@ const InterviewSession = () => {
       try {
         const constraints = {
           audio: true,
-          video: isVideoMode,
+          video: videoModeEnabled,
         };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -204,8 +204,8 @@ const InterviewSession = () => {
         // Note: We don't start background recording anymore
         // Recording only happens when user clicks the mic button
 
-        // Initialize WebRTC for video mode
-        if (isVideoMode) {
+        // Initialize WebRTC for video mode if enabled
+        if (videoModeEnabled) {
           webrtcRef.current = new WebRTCService();
           await webrtcRef.current.initialize(constraints);
         }
@@ -226,7 +226,7 @@ const InterviewSession = () => {
         webrtcRef.current.cleanup();
       }
     };
-  }, [interactionMode, isVideoMode, isAudioMode]);
+  }, [interactionMode, videoModeEnabled, isLiveMode]);
 
   // Socket event handlers
   useEffect(() => {
@@ -315,13 +315,39 @@ const InterviewSession = () => {
     }
   };
 
-  const toggleVideo = () => {
-    if (localStream && isVideoMode) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
+  const toggleVideo = async () => {
+    if (!isLiveMode) return;
+    
+    try {
+      if (videoModeEnabled) {
+        // Disable video
+        if (localStream) {
+          const videoTrack = localStream.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.stop();
+          }
+        }
+        setVideoModeEnabled(false);
+        setIsVideoEnabled(false);
+      } else {
+        // Enable video
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: true, 
+          video: true 
+        });
+        setLocalStream(stream);
+        setVideoModeEnabled(true);
+        setIsVideoEnabled(true);
+        
+        // Initialize WebRTC
+        if (!webrtcRef.current) {
+          webrtcRef.current = new WebRTCService();
+          await webrtcRef.current.initialize({ audio: true, video: true });
+        }
       }
+    } catch (err) {
+      console.error('Failed to toggle video:', err);
+      setError('Failed to enable video. Please check camera permissions.');
     }
   };
 
@@ -349,10 +375,10 @@ const InterviewSession = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Video/Audio Section */}
-        {isAudioMode && (
+        {isLiveMode && (
           <div className="lg:w-1/2 xl:w-3/5 bg-dark-900 flex flex-col">
             <div className="flex-1 relative">
-              {isVideoMode ? (
+              {videoModeEnabled ? (
                 <VideoCall
                   localStream={localStream}
                   remoteStream={remoteStream}
@@ -367,7 +393,7 @@ const InterviewSession = () => {
                       </span>
                     </div>
                     <p className="text-white font-medium">{user?.name}</p>
-                    <p className="text-dark-400 text-sm">Audio Mode</p>
+                    <p className="text-dark-400 text-sm">Live Mode - Audio Active</p>
                     {isRecordingMessage ? (
                       <button
                         onClick={stopMessageRecording}
@@ -398,8 +424,9 @@ const InterviewSession = () => {
             {/* Video Controls */}
             <VideoControls
               isAudioEnabled={isAudioEnabled}
-              isVideoEnabled={isVideoEnabled}
-              isVideoMode={isVideoMode}
+              isVideoEnabled={videoModeEnabled}
+              isLiveMode={isLiveMode}
+              videoModeEnabled={videoModeEnabled}
               onToggleAudio={toggleAudio}
               onToggleVideo={toggleVideo}
               onEndCall={handleEndSession}
@@ -409,8 +436,8 @@ const InterviewSession = () => {
         )}
 
         {/* Chat Section */}
-        <div className={`flex-1 flex flex-col ${isAudioMode ? 'lg:w-1/2 xl:w-2/5' : ''}`}>
-          {!isAudioMode && (
+        <div className={`flex-1 flex flex-col ${isLiveMode ? 'lg:w-1/2 xl:w-2/5' : ''}`}>
+          {!isLiveMode && (
             <div className="p-4 border-b border-dark-800">
               <SessionTimer elapsed={elapsed} formatted={timerFormatted} />
             </div>
@@ -421,7 +448,7 @@ const InterviewSession = () => {
             onSendMessage={handleSendMessage}
             isSending={isSending}
             disabled={isEnding}
-            isAudioMode={isAudioMode}
+            isAudioMode={isLiveMode}
             isRecording={isRecordingMessage}
             onStartRecording={startMessageRecording}
             onStopRecording={stopMessageRecording}
@@ -430,7 +457,7 @@ const InterviewSession = () => {
           />
 
           {/* End Session Button for Text-Only Mode */}
-          {!isAudioMode && (
+          {!isLiveMode && (
             <div className="p-4 border-t border-dark-800">
               <button
                 onClick={handleEndSession}

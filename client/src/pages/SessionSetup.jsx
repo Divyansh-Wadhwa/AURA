@@ -52,13 +52,13 @@ const SessionSetup = () => {
     try {
       const constraints = {
         audio: true,
-        video: config.interactionMode === INTERACTION_MODES.AUDIO_VIDEO,
+        video: false,
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
       setPermissions({
-        camera: config.interactionMode === INTERACTION_MODES.AUDIO_VIDEO ? true : null,
+        camera: null,
         microphone: true,
       });
 
@@ -66,7 +66,7 @@ const SessionSetup = () => {
       return true;
     } catch (err) {
       setPermissions({
-        camera: config.interactionMode === INTERACTION_MODES.AUDIO_VIDEO ? false : null,
+        camera: null,
         microphone: false,
       });
       return false;
@@ -126,8 +126,7 @@ const SessionSetup = () => {
 
   const interactionModeIcons = {
     [INTERACTION_MODES.TEXT_ONLY]: MessageSquare,
-    [INTERACTION_MODES.AUDIO_ONLY]: Mic,
-    [INTERACTION_MODES.AUDIO_VIDEO]: Video,
+    [INTERACTION_MODES.LIVE]: Mic,
   };
 
   return (
@@ -213,7 +212,7 @@ const SessionSetup = () => {
             {/* Interaction Mode */}
             <div className="mb-8">
               <h2 className="text-lg font-semibold text-white mb-4">Interaction Mode</h2>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 {Object.values(INTERACTION_MODES).map((mode) => {
                   const Icon = interactionModeIcons[mode];
                   return (

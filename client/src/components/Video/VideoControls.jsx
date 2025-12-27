@@ -1,9 +1,10 @@
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Loader2, Camera } from 'lucide-react';
 
 const VideoControls = ({
   isAudioEnabled,
   isVideoEnabled,
-  isVideoMode,
+  isLiveMode,
+  videoModeEnabled,
   onToggleAudio,
   onToggleVideo,
   onEndCall,
@@ -29,21 +30,21 @@ const VideoControls = ({
           )}
         </button>
 
-        {/* Video Toggle Button */}
-        {isVideoMode && (
+        {/* Video Enable/Disable Button - Only in Live Mode */}
+        {isLiveMode && (
           <button
             onClick={onToggleVideo}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-              isVideoEnabled
-                ? 'bg-dark-700 hover:bg-dark-600 text-white'
-                : 'bg-red-600 hover:bg-red-500 text-white'
+              videoModeEnabled
+                ? 'bg-primary-600 hover:bg-primary-500 text-white'
+                : 'bg-dark-700 hover:bg-dark-600 text-white'
             }`}
-            title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
+            title={videoModeEnabled ? 'Disable video' : 'Enable video'}
           >
-            {isVideoEnabled ? (
+            {videoModeEnabled ? (
               <Video className="w-5 h-5" />
             ) : (
-              <VideoOff className="w-5 h-5" />
+              <Camera className="w-5 h-5" />
             )}
           </button>
         )}

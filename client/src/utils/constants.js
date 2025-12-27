@@ -6,8 +6,7 @@ export const SESSION_TYPES = {
 
 export const INTERACTION_MODES = {
   TEXT_ONLY: 'text-only',
-  AUDIO_ONLY: 'audio-only',
-  AUDIO_VIDEO: 'audio-video',
+  LIVE: 'live',
 };
 
 export const SCENARIOS = {
@@ -65,14 +64,12 @@ export const SKILL_DESCRIPTIONS = {
 
 export const INTERACTION_MODE_LABELS = {
   'text-only': 'Text Only',
-  'audio-only': 'Audio Only',
-  'audio-video': 'Audio & Video',
+  'live': 'Live Mode',
 };
 
 export const INTERACTION_MODE_DESCRIPTIONS = {
   'text-only': 'Chat-based interview practice',
-  'audio-only': 'Voice-based interview simulation',
-  'audio-video': 'Full video call interview experience',
+  'live': 'Voice-based interview with optional video',
 };
 
 export const SCORE_LEVELS = {
