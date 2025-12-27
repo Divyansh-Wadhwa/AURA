@@ -142,28 +142,48 @@ class LLMSemanticAnalyzer:
         Returns:
             LLMSemanticMetrics with averaged features across all responses
         """
-        if not self.enabled or not self.client or not responses:
+        print(f"[LLMSemantic] analyze() called with {len(responses)} responses")
+        print(f"[LLMSemantic] enabled={self.enabled}, client={self.client is not None}")
+        
+        if not self.enabled:
+            print("[LLMSemantic] LLM analysis disabled - returning defaults")
+            return LLMSemanticMetrics()
+        if not self.client:
+            print("[LLMSemantic] No client initialized - returning defaults")
+            return LLMSemanticMetrics()
+        if not responses:
+            print("[LLMSemantic] No responses provided - returning defaults")
             return LLMSemanticMetrics()
         
         try:
             all_metrics = []
             
-            for response in responses:
+            for i, response in enumerate(responses):
                 if len(response.strip()) < 10:  # Skip very short responses
+                    print(f"[LLMSemantic] Skipping response {i+1} (too short: {len(response.strip())} chars)")
                     continue
-                    
+                
+                print(f"[LLMSemantic] Analyzing response {i+1}: '{response[:50]}...'")
                 metrics = self._analyze_single(response)
                 if metrics:
+                    print(f"[LLMSemantic] Got metrics: {metrics}")
                     all_metrics.append(metrics)
+                else:
+                    print(f"[LLMSemantic] No metrics returned for response {i+1}")
             
             if not all_metrics:
+                print("[LLMSemantic] No valid metrics collected - returning defaults")
                 return LLMSemanticMetrics()
             
             # Average across all responses
-            return self._aggregate_metrics(all_metrics)
+            result = self._aggregate_metrics(all_metrics)
+            print(f"[LLMSemantic] Final aggregated metrics: conf={result.llm_confidence_mean:.2f}, clarity={result.llm_clarity_mean:.2f}")
+            return result
             
         except Exception as e:
             print(f"[LLMSemantic] Analysis error: {e}")
+            import traceback
+            traceback.print_exc()
             return LLMSemanticMetrics()
     
     async def analyze_async(self, responses: List[str]) -> LLMSemanticMetrics:

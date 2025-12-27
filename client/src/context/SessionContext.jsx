@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import api from '../services/api';
+import socketService from '../services/socket';
 
 const SessionContext = createContext(null);
 
@@ -17,6 +18,8 @@ export const SessionProvider = ({ children }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const sendingRef = useRef(false);
 
   const startSession = useCallback(async (config) => {
@@ -25,11 +28,17 @@ export const SessionProvider = ({ children }) => {
       setError(null);
       const response = await api.post('/session/start', config);
       const sessionData = response.data.data;
+      
+      // Build initial message with audio if available
+      const initialMessage = {
+        role: 'assistant',
+        content: sessionData.initialMessage,
+        audioUrl: sessionData.audio?.audioUrl || null,
+      };
+      
       setCurrentSession({
         ...sessionData,
-        messages: [
-          { role: 'assistant', content: sessionData.initialMessage },
-        ],
+        messages: [initialMessage],
       });
       return { success: true, data: sessionData };
     } catch (err) {
@@ -56,20 +65,74 @@ export const SessionProvider = ({ children }) => {
       }));
 
       const response = await api.post(`/session/${sessionId}/message`, { message });
-      const { response: aiResponse } = response.data.data;
+      const { response: aiResponse, audio } = response.data.data;
 
       setCurrentSession((prev) => ({
         ...prev,
-        messages: [...prev.messages, { role: 'assistant', content: aiResponse }],
+        messages: [...prev.messages, { 
+          role: 'assistant', 
+          content: aiResponse,
+          audioUrl: audio?.audioUrl || null,
+        }],
       }));
 
-      return { success: true, response: aiResponse };
+      return { success: true, response: aiResponse, audio };
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to send message';
       setError(message);
       return { success: false, error: message };
     } finally {
       sendingRef.current = false;
+    }
+  }, []);
+
+  const sendAudioMessage = useCallback(async (sessionId, audioBlob) => {
+    if (sendingRef.current) {
+      return { success: false, error: 'Already sending a message' };
+    }
+
+    try {
+      sendingRef.current = true;
+      setError(null);
+      setIsTranscribing(true);
+
+      // Convert blob to base64
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const base64Audio = btoa(
+        new Uint8Array(arrayBuffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          ''
+        )
+      );
+
+      const response = await api.post(`/session/${sessionId}/audio-message`, {
+        audio: base64Audio,
+      });
+
+      const { transcription, response: aiResponse, audio } = response.data.data;
+
+      // Add user message (transcribed text)
+      setCurrentSession((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          { role: 'user', content: transcription },
+          { 
+            role: 'assistant', 
+            content: aiResponse,
+            audioUrl: audio?.audioUrl || null,
+          },
+        ],
+      }));
+
+      return { success: true, transcription, response: aiResponse, audio };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to send audio message';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    } finally {
+      sendingRef.current = false;
+      setIsTranscribing(false);
     }
   }, []);
 
@@ -172,8 +235,11 @@ export const SessionProvider = ({ children }) => {
     stats,
     loading,
     error,
+    isTranscribing,
+    isProcessingAudio,
     startSession,
     sendMessage,
+    sendAudioMessage,
     endSession,
     getSession,
     getUserSessions,

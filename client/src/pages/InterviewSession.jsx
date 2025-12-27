@@ -11,6 +11,7 @@ import VideoControls from '../components/Video/VideoControls';
 import ChatPanel from '../components/Chat/ChatPanel';
 import SessionTimer from '../components/Session/SessionTimer';
 import SessionHeader from '../components/Session/SessionHeader';
+import TranscriptionDisplay from '../components/Session/TranscriptionDisplay';
 import {
   PhoneOff,
   AlertCircle,
@@ -22,13 +23,17 @@ const InterviewSession = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { currentSession, sendMessage, endSession, setCurrentSession } = useSession();
+  const { currentSession, sendMessage, sendAudioMessage, endSession, setCurrentSession, isTranscribing } = useSession();
   const { socket, joinRoom, leaveRoom, on, off } = useSocket();
 
   const [messages, setMessages] = useState([]);
   const [isEnding, setIsEnding] = useState(false);
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isRecordingMessage, setIsRecordingMessage] = useState(false);
+  const [currentTranscription, setCurrentTranscription] = useState('');
+  const [recordingChunkCount, setRecordingChunkCount] = useState(0);
+  const [recordingAudioSize, setRecordingAudioSize] = useState(0);
 
   // Media states
   const [localStream, setLocalStream] = useState(null);
@@ -43,12 +48,137 @@ const InterviewSession = () => {
   const isVideoMode = interactionMode === INTERACTION_MODES.AUDIO_VIDEO;
   const isAudioMode = interactionMode === INTERACTION_MODES.AUDIO_ONLY || isVideoMode;
 
-  // Audio recording
+  // Debug logging
+  useEffect(() => {
+    console.log('[InterviewSession] Mode Debug:', {
+      interactionMode,
+      isAudioMode,
+      isVideoMode,
+      currentSessionInteractionMode: currentSession?.interactionMode,
+    });
+  }, [interactionMode, isAudioMode, isVideoMode, currentSession?.interactionMode]);
+
+  // Audio recording for background chunks
   const { startRecording, stopRecording, cleanup: cleanupRecorder } = useMediaRecorder({
     onChunkAvailable: (buffer, index) => {
       socket.sendAudioChunk(sessionId, buffer, index);
     },
   });
+
+  // Audio recording for messages (separate recorder)
+  const messageRecorderRef = useRef(null);
+  const messageChunksRef = useRef([]);
+
+  const startMessageRecording = useCallback(async () => {
+    console.log('[Recording] startMessageRecording called');
+    try {
+      // Always get a fresh stream for recording
+      console.log('[Recording] Getting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('[Recording] Got stream:', stream.id);
+
+      // Determine supported mime type
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mimeType = 'audio/webm';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      }
+      console.log('[Recording] Using mimeType:', mimeType);
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      messageChunksRef.current = [];
+      setRecordingChunkCount(0);
+      setRecordingAudioSize(0);
+      
+      mediaRecorder.ondataavailable = (event) => {
+        console.log('[Recording] ondataavailable, size:', event.data.size);
+        if (event.data.size > 0) {
+          messageChunksRef.current.push(event.data);
+          // Update real-time stats
+          setRecordingChunkCount(prev => prev + 1);
+          setRecordingAudioSize(prev => prev + event.data.size);
+          console.log(`[Recording] Chunk ${messageChunksRef.current.length}: ${event.data.size} bytes`);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        console.log(`[Recording] onstop called. Total chunks: ${messageChunksRef.current.length}`);
+        
+        // Stop the stream tracks
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('[Recording] Stopped track:', track.kind);
+        });
+        
+        // Create blob from chunks
+        const audioBlob = new Blob(messageChunksRef.current, { type: 'audio/webm' });
+        console.log(`[Recording] Created blob: ${audioBlob.size} bytes`);
+        
+        if (audioBlob.size > 0) {
+          // Send audio message
+          setIsSending(true);
+          try {
+            console.log('[Recording] Sending audio for transcription...');
+            const result = await sendAudioMessage(sessionId, audioBlob);
+            if (!result.success) {
+              console.error('[Recording] Transcription failed:', result.error);
+              setError(result.error || 'Failed to send audio message');
+              setCurrentTranscription('');
+            } else {
+              console.log('[Recording] Transcription successful:', result.transcription);
+              setCurrentTranscription(result.transcription);
+              // Clear transcription after 3 seconds
+              setTimeout(() => setCurrentTranscription(''), 3000);
+            }
+          } catch (err) {
+            console.error('[Recording] Error:', err);
+            setError('Failed to process audio');
+            setCurrentTranscription('');
+          } finally {
+            setIsSending(false);
+          }
+        } else {
+          console.warn('[Recording] Empty audio blob, not sending');
+        }
+        
+        messageChunksRef.current = [];
+        // Reset recording stats
+        setRecordingChunkCount(0);
+        setRecordingAudioSize(0);
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('[Recording] MediaRecorder error:', event.error);
+        setError('Recording error occurred');
+      };
+
+      mediaRecorder.onstart = () => {
+        console.log('[Recording] MediaRecorder started');
+      };
+
+      messageRecorderRef.current = mediaRecorder;
+      mediaRecorder.start(500); // Collect data every 500ms for more responsive recording
+      setIsRecordingMessage(true);
+      console.log('[Recording] Recording started successfully');
+    } catch (err) {
+      console.error('[Recording] Failed to start:', err);
+      setError('Failed to access microphone: ' + err.message);
+    }
+  }, [sessionId, sendAudioMessage]);
+
+  const stopMessageRecording = useCallback(() => {
+    console.log('[Recording] stopMessageRecording called, state:', messageRecorderRef.current?.state);
+    if (messageRecorderRef.current && messageRecorderRef.current.state !== 'inactive') {
+      console.log('[Recording] Stopping recorder...');
+      messageRecorderRef.current.stop();
+      setIsRecordingMessage(false);
+    } else {
+      console.log('[Recording] Recorder not active, nothing to stop');
+    }
+  }, []);
 
   // Initialize session
   useEffect(() => {
@@ -71,9 +201,8 @@ const InterviewSession = () => {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         setLocalStream(stream);
 
-        if (isAudioMode) {
-          await startRecording(stream);
-        }
+        // Note: We don't start background recording anymore
+        // Recording only happens when user clicks the mic button
 
         // Initialize WebRTC for video mode
         if (isVideoMode) {
@@ -146,15 +275,19 @@ const InterviewSession = () => {
     setIsEnding(true);
 
     try {
-      // Stop recording
-      if (isAudioMode) {
-        await stopRecording();
+      // Stop message recording if active
+      if (messageRecorderRef.current && messageRecorderRef.current.state !== 'inactive') {
+        messageRecorderRef.current.stop();
+        setIsRecordingMessage(false);
       }
 
       // Stop media tracks
       if (localStream) {
         localStream.getTracks().forEach((track) => track.stop());
       }
+
+      // Cleanup recorder
+      cleanupRecorder();
 
       // End session via API
       const result = await endSession(sessionId);
@@ -235,11 +368,22 @@ const InterviewSession = () => {
                     </div>
                     <p className="text-white font-medium">{user?.name}</p>
                     <p className="text-dark-400 text-sm">Audio Mode</p>
-                    {isAudioEnabled && (
-                      <div className="mt-4 flex items-center justify-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
-                        <span className="text-accent-400 text-sm">Recording</span>
-                      </div>
+                    {isRecordingMessage ? (
+                      <button
+                        onClick={stopMessageRecording}
+                        className="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-all cursor-pointer"
+                      >
+                        <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-red-400 text-sm font-medium">Recording... Click to STOP</span>
+                      </button>
+                    ) : isAudioEnabled && (
+                      <button
+                        onClick={startMessageRecording}
+                        className="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-primary-500/20 hover:bg-primary-500/30 rounded-lg transition-all cursor-pointer"
+                      >
+                        <div className="w-3 h-3 rounded-full bg-green-500" />
+                        <span className="text-green-400 text-sm font-medium">🎤 Click HERE to Record</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -277,6 +421,12 @@ const InterviewSession = () => {
             onSendMessage={handleSendMessage}
             isSending={isSending}
             disabled={isEnding}
+            isAudioMode={isAudioMode}
+            isRecording={isRecordingMessage}
+            onStartRecording={startMessageRecording}
+            onStopRecording={stopMessageRecording}
+            isTranscribing={isTranscribing}
+            autoPlayAudio={true}
           />
 
           {/* End Session Button for Text-Only Mode */}
@@ -301,17 +451,23 @@ const InterviewSession = () => {
         </div>
       </main>
 
+      {/* Transcription Display */}
+      <TranscriptionDisplay
+        isRecording={isRecordingMessage}
+        isTranscribing={isTranscribing}
+        transcriptionText={currentTranscription}
+        chunkCount={recordingChunkCount}
+        audioSize={recordingAudioSize}
+      />
+
       {/* Error Toast */}
       {error && (
-        <div className="fixed bottom-4 right-4 max-w-md p-4 rounded-lg bg-red-900/90 border border-red-700 text-red-100 flex items-start gap-3 animate-in slide-in-right">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium">Error</p>
-            <p className="text-sm text-red-200">{error}</p>
-          </div>
+        <div className="fixed bottom-4 right-4 bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg flex items-center gap-2 max-w-md z-50">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm">{error}</p>
           <button
             onClick={() => setError('')}
-            className="ml-auto text-red-300 hover:text-white"
+            className="ml-auto text-red-500 hover:text-red-400"
           >
             ×
           </button>

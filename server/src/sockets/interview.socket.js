@@ -1,8 +1,13 @@
 import logger from '../utils/logger.js';
-import { saveAudioChunk } from '../services/speech.service.js';
+import { saveAudioChunk, saveCompleteAudio } from '../services/speech.service.js';
+import { transcribeAudio } from '../services/whisper.service.js';
+import { textToSpeech } from '../services/elevenlabs.service.js';
+import { generateInterviewerResponse } from '../services/llm.service.js';
+import Session from '../models/Session.model.js';
 
 const rooms = new Map();
 const userSockets = new Map();
+const audioBuffers = new Map(); // Store audio buffers for each session
 
 export const setupInterviewSocket = (io, socket) => {
   // Join interview room
@@ -83,7 +88,7 @@ export const setupInterviewSocket = (io, socket) => {
     }
   });
 
-  // Audio chunk streaming
+  // Audio chunk streaming (for background recording)
   socket.on('audio-chunk', async ({ sessionId, chunk, chunkIndex }) => {
     try {
       const audioBuffer = Buffer.from(chunk);
@@ -97,6 +102,108 @@ export const setupInterviewSocket = (io, socket) => {
         error: error.message,
       });
     }
+  });
+
+  // Complete audio message for transcription and response
+  socket.on('audio-message', async ({ sessionId, audio, mimeType }) => {
+    try {
+      logger.info(`[Socket] Received audio message for session: ${sessionId}`);
+      
+      // Emit processing started
+      socket.emit('audio-processing-started', { sessionId });
+
+      // Convert base64 to buffer
+      const audioBuffer = Buffer.from(audio, 'base64');
+      
+      // Save the complete audio
+      await saveCompleteAudio(sessionId, audioBuffer);
+
+      // Transcribe audio using Whisper
+      const transcription = await transcribeAudio(audioBuffer, { 
+        mimeType: mimeType || 'audio/webm' 
+      });
+
+      if (!transcription || !transcription.text) {
+        socket.emit('audio-transcription-error', {
+          sessionId,
+          error: 'Failed to transcribe audio',
+        });
+        return;
+      }
+
+      const userMessage = transcription.text;
+      logger.info(`[Socket] Transcribed: "${userMessage.substring(0, 50)}..."`);
+
+      // Emit transcription result
+      socket.emit('audio-transcription', {
+        sessionId,
+        text: userMessage,
+        duration: transcription.duration,
+      });
+
+      // Get session and update transcript
+      const session = await Session.findById(sessionId);
+      if (!session) {
+        socket.emit('audio-error', { sessionId, error: 'Session not found' });
+        return;
+      }
+
+      session.addMessage('user', userMessage);
+
+      // Build conversation history
+      const conversationHistory = session.transcript
+        .filter((msg) => msg.role !== 'system')
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
+      const systemPrompt = session.transcript.find((msg) => msg.role === 'system')?.content;
+      
+      // Generate AI response
+      const aiResponse = await generateInterviewerResponse(conversationHistory, systemPrompt);
+      
+      session.addMessage('assistant', aiResponse);
+      await session.save();
+
+      // Emit text response immediately
+      socket.emit('interviewer-response', {
+        sessionId,
+        text: aiResponse,
+        messageCount: session.transcript.length,
+      });
+
+      // Generate TTS audio for the response
+      const audioResponse = await textToSpeech(aiResponse, sessionId);
+      
+      if (audioResponse) {
+        socket.emit('interviewer-audio', {
+          sessionId,
+          audioUrl: audioResponse.audioUrl,
+          duration: audioResponse.duration,
+        });
+      }
+
+      logger.info(`[Socket] Audio message processed for session: ${sessionId}`);
+    } catch (error) {
+      logger.error(`[Socket] Audio message error: ${error.message}`);
+      socket.emit('audio-error', {
+        sessionId,
+        error: error.message,
+      });
+    }
+  });
+
+  // Start recording indicator
+  socket.on('recording-started', ({ sessionId }) => {
+    logger.socket(`Recording started for session: ${sessionId}`);
+    socket.to(sessionId).emit('peer-recording-started', { peerId: socket.id });
+  });
+
+  // Stop recording indicator  
+  socket.on('recording-stopped', ({ sessionId }) => {
+    logger.socket(`Recording stopped for session: ${sessionId}`);
+    socket.to(sessionId).emit('peer-recording-stopped', { peerId: socket.id });
   });
 
   // Session state updates

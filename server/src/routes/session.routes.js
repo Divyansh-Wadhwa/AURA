@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   startSession,
   sendMessage,
+  sendAudioMessage,
   endSession,
   getSession,
   getUserSessions,
@@ -15,6 +16,7 @@ router.use(protect);
 
 router.post('/start', startSession);
 router.post('/:sessionId/message', sendMessage);
+router.post('/:sessionId/audio-message', sendAudioMessage);
 router.post('/:sessionId/end', endSession);
 router.get('/stats', getUserStats);
 router.get('/list', getUserSessions);

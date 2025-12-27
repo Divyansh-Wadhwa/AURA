@@ -115,6 +115,18 @@ class SocketService {
     this.emit('audio-chunk', { sessionId, chunk, chunkIndex });
   }
 
+  sendAudioMessage(sessionId, audioBase64, mimeType = 'audio/webm') {
+    this.emit('audio-message', { sessionId, audio: audioBase64, mimeType });
+  }
+
+  emitRecordingStarted(sessionId) {
+    this.emit('recording-started', { sessionId });
+  }
+
+  emitRecordingStopped(sessionId) {
+    this.emit('recording-stopped', { sessionId });
+  }
+
   sendMediaStateChange(roomId, audio, video) {
     this.emit('media-state-change', { roomId, audio, video });
   }

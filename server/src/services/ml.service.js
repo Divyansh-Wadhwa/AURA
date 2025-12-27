@@ -66,13 +66,14 @@ export const analyzeSession = async (sessionData) => {
 
     const userResponses = userMessages.map((m) => m.content);
     const interviewerQuestions = assistantMessages.map((m) => m.content);
+    const responseDurations = userMessages.map((m) => m.duration || 0);
 
     console.log(`\n${COLORS.magenta}  User Responses:${COLORS.reset}`);
-    userResponses.forEach((r, i) => console.log(`    [${i + 1}] "${r.substring(0, 100)}${r.length > 100 ? '...' : ''}"`));
+    userResponses.forEach((r, i) => console.log(`    [${i + 1}] "${r.substring(0, 100)}${r.length > 100 ? '...' : ''}" (${responseDurations[i]}s)`));
 
     // Step 2: Call Perception Layer to extract features
     logStep(2, `Calling Perception Layer at ${config.perceptionServiceUrl}`);
-    const perceptionResult = await callPerceptionLayer(userResponses, interviewerQuestions);
+    const perceptionResult = await callPerceptionLayer(userResponses, interviewerQuestions, responseDurations);
 
     if (!perceptionResult) {
       logError('Perception Layer failed - falling back to placeholder');
@@ -145,7 +146,7 @@ export const analyzeSession = async (sessionData) => {
 /**
  * Call Perception Layer to extract features from text
  */
-const callPerceptionLayer = async (userResponses, interviewerQuestions) => {
+const callPerceptionLayer = async (userResponses, interviewerQuestions, responseDurations = null) => {
   try {
     console.log(`${COLORS.yellow}  Checking Perception service health...${COLORS.reset}`);
     
@@ -169,7 +170,7 @@ const callPerceptionLayer = async (userResponses, interviewerQuestions) => {
     const requestBody = {
       user_responses: userResponses,
       interviewer_questions: interviewerQuestions,
-      response_durations: null,
+      response_durations: responseDurations,
     };
     
     console.log(`${COLORS.yellow}  Sending request to ${config.perceptionServiceUrl}/analyze/text${COLORS.reset}`);

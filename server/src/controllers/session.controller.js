@@ -2,6 +2,8 @@ import Session from '../models/Session.model.js';
 import User from '../models/User.model.js';
 import { generateInterviewerResponse } from '../services/llm.service.js';
 import { analyzeSession } from '../services/ml.service.js';
+import { textToSpeech, isAvailable as isTTSAvailable } from '../services/elevenlabs.service.js';
+import { transcribeAudio, isAvailable as isSTTAvailable } from '../services/whisper.service.js';
 import logger from '../utils/logger.js';
 
 export const startSession = async (req, res, next) => {
@@ -32,6 +34,12 @@ export const startSession = async (req, res, next) => {
 
     logger.info(`Session started: ${session._id} for user: ${req.user._id}`);
 
+    // Generate TTS audio for initial message if voice is enabled and audio mode
+    let audioResponse = null;
+    if (isTTSAvailable() && (interactionMode === 'audio-only' || interactionMode === 'audio-video')) {
+      audioResponse = await textToSpeech(initialMessage, session._id.toString());
+    }
+
     res.status(201).json({
       success: true,
       data: {
@@ -39,6 +47,7 @@ export const startSession = async (req, res, next) => {
         interactionMode: session.interactionMode,
         scenario: session.scenario,
         initialMessage,
+        audio: audioResponse,
       },
     });
   } catch (error) {
@@ -86,14 +95,105 @@ export const sendMessage = async (req, res, next) => {
     session.addMessage('assistant', aiResponse);
     await session.save();
 
+    // Generate TTS audio for AI response if voice is enabled and audio mode
+    let audioResponse = null;
+    const interactionMode = session.interactionMode;
+    if (isTTSAvailable() && (interactionMode === 'audio-only' || interactionMode === 'audio-video')) {
+      audioResponse = await textToSpeech(aiResponse, sessionId);
+    }
+
     res.status(200).json({
       success: true,
       data: {
         response: aiResponse,
         messageCount: session.transcript.length,
+        audio: audioResponse,
       },
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const sendAudioMessage = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const audioBuffer = req.body.audio;
+
+    if (!audioBuffer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Audio data is required',
+      });
+    }
+
+    const session = await Session.findOne({
+      _id: sessionId,
+      userId: req.user._id,
+      status: 'active',
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Active session not found',
+      });
+    }
+
+    // Transcribe audio using Whisper
+    if (!isSTTAvailable()) {
+      return res.status(503).json({
+        success: false,
+        message: 'Speech-to-text service not available',
+      });
+    }
+
+    const buffer = Buffer.from(audioBuffer, 'base64');
+    const transcription = await transcribeAudio(buffer, { mimeType: 'audio/webm' });
+
+    if (!transcription || !transcription.text) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to transcribe audio',
+      });
+    }
+
+    const userMessage = transcription.text;
+    const audioDuration = transcription.duration || 0;
+    logger.info(`[Audio] Transcribed: "${userMessage.substring(0, 50)}..." (duration: ${audioDuration}s)`);
+
+    session.addMessage('user', userMessage, audioDuration);
+
+    const conversationHistory = session.transcript
+      .filter((msg) => msg.role !== 'system')
+      .map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+    const systemPrompt = session.transcript.find((msg) => msg.role === 'system')?.content;
+    const aiResponse = await generateInterviewerResponse(conversationHistory, systemPrompt);
+
+    session.addMessage('assistant', aiResponse);
+    await session.save();
+
+    // Generate TTS audio for AI response
+    let audioResponse = null;
+    if (isTTSAvailable()) {
+      audioResponse = await textToSpeech(aiResponse, sessionId);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        transcription: userMessage,
+        response: aiResponse,
+        messageCount: session.transcript.length,
+        audio: audioResponse,
+      },
+    });
+  } catch (error) {
+    logger.error(`Audio message error: ${error.message}`);
     next(error);
   }
 };

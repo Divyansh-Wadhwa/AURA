@@ -4,6 +4,7 @@ import config from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
 import sessionRoutes from './routes/session.routes.js';
 import feedbackRoutes from './routes/feedback.routes.js';
+import audioRoutes from './routes/audio.routes.js';
 import { notFound, errorHandler } from './middleware/error.middleware.js';
 import logger from './utils/logger.js';
 
@@ -43,6 +44,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/audio', audioRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {
@@ -53,6 +55,7 @@ app.get('/api', (req, res) => {
       auth: '/api/auth',
       session: '/api/session',
       feedback: '/api/feedback',
+      audio: '/api/audio',
     },
   });
 });

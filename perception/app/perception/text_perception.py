@@ -217,7 +217,14 @@ class TextPerception:
         Returns:
             TextMetrics containing all extracted features
         """
+        print(f"\n[TextPerception] ========== EXTRACT METRICS ==========")
+        print(f"[TextPerception] Received {len(user_responses)} responses")
+        print(f"[TextPerception] Durations: {response_durations}")
+        for i, resp in enumerate(user_responses):
+            print(f"[TextPerception] Response {i+1}: '{resp[:100]}{'...' if len(resp) > 100 else ''}'")
+        
         if not user_responses:
+            print("[TextPerception] No responses - returning empty metrics")
             return TextMetrics()
         
         metrics = TextMetrics()
@@ -365,11 +372,14 @@ class TextPerception:
             metrics.sentence_length_std = float(np.std(all_sentence_lengths))
         
         # Response duration metrics
-        if durations:
-            metrics.avg_response_length_sec = float(np.mean(durations))
-            if len(durations) > 1 and np.mean(durations) > 0:
-                cv = np.std(durations) / np.mean(durations)
+        print(f"[TextPerception] Structural metrics: durations={durations}")
+        if durations and any(d > 0 for d in durations):
+            valid_durations = [d for d in durations if d > 0]
+            metrics.avg_response_length_sec = float(np.mean(valid_durations))
+            if len(valid_durations) > 1 and np.mean(valid_durations) > 0:
+                cv = np.std(valid_durations) / np.mean(valid_durations)
                 metrics.response_length_consistency = float(1.0 / (1.0 + cv))
+            print(f"[TextPerception]   avg_response_length_sec={metrics.avg_response_length_sec:.2f}, consistency={metrics.response_length_consistency:.2f}")
     
     def _extract_assertiveness_metrics(
         self,
@@ -446,6 +456,10 @@ class TextPerception:
             # NEW: Vague phrase ratio (per-response basis for multi-word phrases)
             # Normalize by responses since vague phrases are typically per-response
             metrics.vague_phrase_ratio = min(vague_count / total_responses, 1.0)
+            
+            # Debug logging
+            print(f"[TextPerception] Assertiveness metrics: total_words={total_words}, responses={total_responses}")
+            print(f"[TextPerception]   assertive_phrases={assertive_phrases_total}, modal={modal_count}, hedge={hedge_count}, filler={filler_count}, vague={vague_count}")
     
     def _extract_empathy_metrics(
         self,
@@ -487,6 +501,8 @@ class TextPerception:
         metrics.empathy_phrase_ratio = empathy_responses / total_responses
         metrics.reflective_response_ratio = reflective_responses / total_responses
         metrics.question_back_ratio = question_back_responses / total_responses
+        
+        print(f"[TextPerception] Empathy metrics: empathy={empathy_responses}, reflective={reflective_responses}, questions={question_back_responses}")
     
     def _extract_sentiment_metrics(
         self,

@@ -1,9 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Mic, MicOff, Volume2 } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 
-const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
+const ChatPanel = ({ 
+  messages, 
+  onSendMessage, 
+  onSendAudio,
+  isSending, 
+  disabled,
+  isAudioMode = false,
+  isRecording = false,
+  onStartRecording,
+  onStopRecording,
+  isTranscribing = false,
+  autoPlayAudio = true,
+}) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -14,7 +26,7 @@ const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isSending]);
+  }, [messages, isSending, isTranscribing]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,6 +43,17 @@ const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
     }
   };
 
+  const handleRecordToggle = () => {
+    console.log('[ChatPanel] Record toggle clicked, isRecording:', isRecording, 'isAudioMode:', isAudioMode);
+    if (isRecording) {
+      console.log('[ChatPanel] Stopping recording...');
+      onStopRecording?.();
+    } else {
+      console.log('[ChatPanel] Starting recording...');
+      onStartRecording?.();
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-dark-950 overflow-hidden">
       {/* Messages Area */}
@@ -39,6 +62,9 @@ const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
           <div className="h-full flex items-center justify-center">
             <div className="text-center text-dark-500">
               <p>Start the conversation with your AI interviewer</p>
+              {isAudioMode && (
+                <p className="text-sm mt-2">Click the microphone to speak</p>
+              )}
             </div>
           </div>
         ) : (
@@ -48,8 +74,16 @@ const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
                 key={index}
                 role={message.role}
                 content={message.content}
+                audioUrl={message.audioUrl}
+                autoPlayAudio={autoPlayAudio && index === messages.length - 1 && message.role === 'assistant'}
               />
             ))}
+            {isTranscribing && (
+              <div className="flex items-center gap-2 text-dark-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Transcribing your speech...</span>
+              </div>
+            )}
             {isSending && <TypingIndicator />}
             <div ref={messagesEndRef} />
           </>
@@ -59,14 +93,34 @@ const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
       {/* Input Area */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-dark-800">
         <div className="flex items-end gap-3">
+          {/* Audio Record Button (for audio mode) */}
+          {isAudioMode && (
+            <button
+              type="button"
+              onClick={handleRecordToggle}
+              disabled={disabled || isSending || isTranscribing}
+              className={`h-12 w-12 flex items-center justify-center rounded-xl transition-all ${
+                isRecording 
+                  ? 'bg-red-500 hover:bg-red-400 animate-pulse' 
+                  : 'bg-dark-700 hover:bg-dark-600'
+              } disabled:opacity-50`}
+            >
+              {isRecording ? (
+                <MicOff className="w-5 h-5 text-white" />
+              ) : (
+                <Mic className="w-5 h-5 text-white" />
+              )}
+            </button>
+          )}
+
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your response..."
-              disabled={disabled || isSending}
+              placeholder={isAudioMode ? "Or type your response..." : "Type your response..."}
+              disabled={disabled || isSending || isRecording}
               rows={1}
               className="input resize-none pr-12 min-h-[48px] max-h-32"
               style={{
@@ -77,7 +131,7 @@ const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
           </div>
           <button
             type="submit"
-            disabled={!input.trim() || isSending || disabled}
+            disabled={!input.trim() || isSending || disabled || isRecording}
             className="btn-primary h-12 w-12 flex items-center justify-center rounded-xl disabled:opacity-50"
           >
             {isSending ? (
@@ -88,7 +142,12 @@ const ChatPanel = ({ messages, onSendMessage, isSending, disabled }) => {
           </button>
         </div>
         <p className="text-xs text-dark-500 mt-2">
-          Press Enter to send, Shift+Enter for new line
+          {isAudioMode 
+            ? isRecording 
+              ? 'Recording... Click mic to stop and send'
+              : 'Press mic to speak, or type and press Enter'
+            : 'Press Enter to send, Shift+Enter for new line'
+          }
         </p>
       </form>
     </div>

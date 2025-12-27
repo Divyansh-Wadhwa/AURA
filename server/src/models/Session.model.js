@@ -14,6 +14,10 @@ const messageSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  duration: {
+    type: Number,
+    default: null,
+  },
 });
 
 const scoreSchema = new mongoose.Schema({
@@ -146,11 +150,12 @@ sessionSchema.methods.calculateDuration = function () {
   return this.duration;
 };
 
-sessionSchema.methods.addMessage = function (role, content) {
+sessionSchema.methods.addMessage = function (role, content, duration = null) {
   this.transcript.push({
     role,
     content,
     timestamp: new Date(),
+    duration: duration,
   });
   return this;
 };
