@@ -20,8 +20,7 @@ const TTS_DIR = join(__dirname, '../../uploads/tts');
 const AUDIO_DIR = join(__dirname, '../../uploads/audio');
 
 /**
- * Auth0 JWT validation for audio access
- * Supports token in query param (for audio elements) or Authorization header
+ * Verify audio access - supports both Auth0 and manual JWT tokens
  */
 const verifyAudioAccess = async (req, res, next) => {
   try {
@@ -30,6 +29,20 @@ const verifyAudioAccess = async (req, res, next) => {
     
     if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided' });
+    }
+
+    // Try manual JWT first (simpler validation)
+    const jwt = await import('jsonwebtoken');
+    try {
+      const decoded = jwt.default.verify(token, config.jwtSecret);
+      // Check for 'id' (manual login token format) or 'userId'
+      const userId = decoded.id || decoded.userId;
+      if (decoded && userId) {
+        req.user = { _id: userId };
+        return next();
+      }
+    } catch (manualErr) {
+      // Not a manual token, try Auth0
     }
 
     // Set authorization header for Auth0 middleware if token was in query

@@ -53,6 +53,47 @@ const userSchema = new mongoose.Schema(
       empathy: { type: Number, default: 0 },
       communication: { type: Number, default: 0 },
     },
+    // Behavioral profile - baseline from onboarding
+    behavioralProfile: {
+      // Raw numeric signals (internal only, never exposed)
+      metrics: {
+        pacing: { type: Number, default: 50 },        // 0-100 scale
+        structure: { type: Number, default: 50 },
+        hesitation: { type: Number, default: 50 },
+        assertiveness: { type: Number, default: 50 },
+        clarity: { type: Number, default: 50 },
+        warmth: { type: Number, default: 50 },
+        energy: { type: Number, default: 50 },
+      },
+      // Psychological state classification
+      disposition: {
+        type: String,
+        enum: ['cautious', 'anxious', 'neutral', 'confident', 'overconfident'],
+        default: 'neutral',
+      },
+      // Communication style archetype
+      styleArchetype: {
+        type: String,
+        enum: ['thoughtful_analyzer', 'dynamic_engager', 'steady_connector', 'clear_director', 'reflective_explorer'],
+        default: null,
+      },
+      // Human-readable reflection
+      reflection: { type: String, default: null },
+      // Current focus area (opportunity for growth)
+      focusArea: { type: String, default: null },
+      focusRationale: { type: String, default: null },
+      // Suggested micro-experiment
+      microExperiment: { type: String, default: null },
+      // Session count for evolution tracking
+      sessionCount: { type: Number, default: 0 },
+      // Whether baseline is established
+      hasBaseline: { type: Boolean, default: false },
+      // Last updated timestamp
+      lastUpdated: { type: Date, default: null },
+    },
+    // Onboarding status
+    onboardingCompleted: { type: Boolean, default: false },
+    onboardingSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', default: null },
   },
   {
     timestamps: true,

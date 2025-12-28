@@ -14,6 +14,9 @@ import {
   getMe,
   updateProfile,
   syncAuth0User,
+  completeOnboarding,
+  getBehavioralProfile,
+  getOnboardingStatus,
 } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth0.middleware.js';
 
@@ -22,11 +25,16 @@ const router = Router();
 // Auth0 user sync endpoint (protected by Auth0 JWT)
 router.post('/sync', protect, syncAuth0User);
 
-// Protected routes (require Auth0 JWT)
+// Protected routes (require Auth0 JWT or manual JWT)
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 
-// Legacy routes (kept for backward compatibility, but Auth0 is primary)
+// Onboarding and behavioral profile
+router.post('/complete-onboarding', protect, completeOnboarding);
+router.get('/behavioral-profile', protect, getBehavioralProfile);
+router.get('/onboarding-status', protect, getOnboardingStatus);
+
+// Manual login/register routes
 router.post('/register', register);
 router.post('/login', login);
 

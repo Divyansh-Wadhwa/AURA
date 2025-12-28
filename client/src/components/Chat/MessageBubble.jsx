@@ -96,10 +96,12 @@ const AudioPlayer = ({ audioUrl, token, autoPlay = false, onAudioPlay, onAudioEn
 
   // Build audio URL with auth token (passed as prop from MessageBubble)
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  // Fallback to localStorage token if not passed as prop
+  const authToken = token || localStorage.getItem('aura_manual_token');
   let fullAudioUrl = audioUrl;
   if (audioUrl?.startsWith('/api/')) {
     const baseUrl = `${API_URL.replace('/api', '')}${audioUrl}`;
-    fullAudioUrl = token ? `${baseUrl}?token=${token}` : baseUrl;
+    fullAudioUrl = authToken ? `${baseUrl}?token=${authToken}` : baseUrl;
   }
 
   if (error) {
