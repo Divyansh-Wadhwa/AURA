@@ -59,22 +59,28 @@ export const SessionProvider = ({ children }) => {
       sendingRef.current = true;
       setError(null);
       
-      setCurrentSession((prev) => ({
-        ...prev,
-        messages: [...prev.messages, { role: 'user', content: message }],
-      }));
+      setCurrentSession((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), { role: 'user', content: message }],
+        };
+      });
 
       const response = await api.post(`/session/${sessionId}/message`, { message });
       const { response: aiResponse, audio } = response.data.data;
 
-      setCurrentSession((prev) => ({
-        ...prev,
-        messages: [...prev.messages, { 
-          role: 'assistant', 
-          content: aiResponse,
-          audioUrl: audio?.audioUrl || null,
-        }],
-      }));
+      setCurrentSession((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), { 
+            role: 'assistant', 
+            content: aiResponse,
+            audioUrl: audio?.audioUrl || null,
+          }],
+        };
+      });
 
       return { success: true, response: aiResponse, audio };
     } catch (err) {
@@ -112,18 +118,21 @@ export const SessionProvider = ({ children }) => {
       const { transcription, response: aiResponse, audio } = response.data.data;
 
       // Add user message (transcribed text)
-      setCurrentSession((prev) => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          { role: 'user', content: transcription },
-          { 
-            role: 'assistant', 
-            content: aiResponse,
-            audioUrl: audio?.audioUrl || null,
-          },
-        ],
-      }));
+      setCurrentSession((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [
+            ...(prev.messages || []),
+            { role: 'user', content: transcription },
+            { 
+              role: 'assistant', 
+              content: aiResponse,
+              audioUrl: audio?.audioUrl || null,
+            },
+          ],
+        };
+      });
 
       return { success: true, transcription, response: aiResponse, audio };
     } catch (err) {

@@ -92,10 +92,26 @@ export const analyzeSession = async (sessionData) => {
     }
 
     logSuccess('Perception features extracted successfully');
-    console.log(`\n${COLORS.blue}  Extracted Features (17 text metrics):${COLORS.reset}`);
+    console.log(`\n${COLORS.blue}  Extracted Features (${Object.keys(perceptionResult).length} text metrics):${COLORS.reset}`);
     Object.entries(perceptionResult).forEach(([key, value]) => {
       console.log(`    ${COLORS.yellow}${key}:${COLORS.reset} ${typeof value === 'number' ? value.toFixed(4) : value}`);
     });
+
+    // Log video metrics in detail
+    if (videoMetrics) {
+      console.log(`\n${COLORS.magenta}  Video Features (${Object.keys(videoMetrics).length} metrics):${COLORS.reset}`);
+      Object.entries(videoMetrics).forEach(([key, value]) => {
+        console.log(`    ${COLORS.cyan}${key}:${COLORS.reset} ${typeof value === 'number' ? value.toFixed(4) : value}`);
+      });
+    }
+
+    // Log audio metrics if available
+    if (audioRefs && audioRefs.length > 0) {
+      console.log(`\n${COLORS.green}  Audio Features:${COLORS.reset}`);
+      console.log(`    ${COLORS.cyan}audio_segments:${COLORS.reset} ${audioRefs.length}`);
+      const totalDuration = audioRefs.reduce((sum, ref) => sum + (ref.duration || 0), 0);
+      console.log(`    ${COLORS.cyan}total_audio_duration:${COLORS.reset} ${totalDuration.toFixed(2)}s`);
+    }
 
     // Step 3: Call Decision Layer to score features (include video metrics)
     logStep(3, `Calling Decision Layer at ${config.decisionServiceUrl}`);
