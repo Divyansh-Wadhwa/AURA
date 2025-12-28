@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { useAuth } from '../context/AuthContext';
 import {
   Sparkles,
   ArrowLeft,
@@ -26,6 +27,7 @@ import { SCENARIO_LABELS, getScoreLevel } from '../utils/constants';
 const Feedback = () => {
   const { sessionId } = useParams();
   const { getFeedback } = useSession();
+  const { accessToken } = useAuth();
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,8 +59,10 @@ const Feedback = () => {
   };
 
   useEffect(() => {
+    // Wait for access token before making API calls
+    if (!accessToken) return;
     loadFeedback();
-  }, [sessionId]);
+  }, [sessionId, accessToken]);
 
   if (loading && !isAnalyzing) {
     return (
