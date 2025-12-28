@@ -6,7 +6,7 @@ const TranscriptionDisplay = ({ isRecording, isTranscribing, transcriptionText, 
   }
 
   return (
-    <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl w-full px-4">
+    <div className="fixed bottom-40 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full px-4">
       <div className="bg-dark-800 border border-dark-700 rounded-xl shadow-2xl p-4">
         <div className="flex items-start gap-3">
           {/* Status Icon */}

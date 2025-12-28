@@ -167,6 +167,17 @@ export const sendAudioMessage = async (req, res, next) => {
     const audioDuration = transcription.duration || 0;
     logger.info(`[Audio] Transcribed: "${userMessage.substring(0, 50)}..." (duration: ${audioDuration}s)`);
 
+    // Add audio reference for ML analysis
+    if (!session.audioRefs) {
+      session.audioRefs = [];
+    }
+    session.audioRefs.push({
+      filename: `audio_${Date.now()}.webm`,
+      duration: audioDuration,
+      size: buffer.length,
+      createdAt: new Date(),
+    });
+
     session.addMessage('user', userMessage, audioDuration);
 
     const conversationHistory = session.transcript

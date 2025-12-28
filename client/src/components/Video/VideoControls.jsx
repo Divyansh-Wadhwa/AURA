@@ -49,19 +49,6 @@ const VideoControls = ({
           </button>
         )}
 
-        {/* End Call Button */}
-        <button
-          onClick={onEndCall}
-          disabled={isEnding}
-          className="w-14 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-colors disabled:opacity-50"
-          title="End Interview"
-        >
-          {isEnding ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <PhoneOff className="w-5 h-5" />
-          )}
-        </button>
       </div>
     </div>
   );
