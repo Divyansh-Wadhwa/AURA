@@ -1,178 +1,210 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
+import { useTheme } from '../context/ThemeContext';
+import api from '../services/api';
 import {
   Sparkles,
   Plus,
-  TrendingUp,
   Clock,
-  Target,
   ChevronRight,
   LogOut,
-  User,
-  BarChart3,
-  Calendar,
-  Award,
   Moon,
   Sun,
+  MessageSquare,
+  Video,
+  Users,
+  Mic,
+  Lightbulb,
+  Target,
+  Calendar,
+  ArrowRight,
+  Star,
+  FlaskConical,
+  CheckCircle,
+  Play,
+  Heart,
+  Zap,
+  RefreshCw,
 } from 'lucide-react';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js';
-import { formatRelativeTime, formatDuration, formatScore } from '../utils/formatters';
-import { SCENARIO_LABELS, getScoreLevel } from '../utils/constants';
-import { useTheme } from '../context/ThemeContext';
+import { formatRelativeTime, formatDuration } from '../utils/formatters';
+import { SCENARIO_LABELS } from '../utils/constants';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+// Practice type configurations
+const PRACTICE_TYPES = {
+  mock_interview: {
+    icon: MessageSquare,
+    label: 'Mock Interview',
+    description: 'Practice answering common interview questions',
+    color: 'primary',
+    scenario: 'job_interview',
+  },
+  presentation: {
+    icon: Video,
+    label: 'Presentation Practice',
+    description: 'Rehearse and refine your presentation delivery',
+    color: 'secondary',
+    scenario: 'presentation',
+  },
+  group_discussion: {
+    icon: Users,
+    label: 'Group Discussion',
+    description: 'Practice collaborative conversations',
+    color: 'accent',
+    scenario: 'group_discussion',
+  },
+  live_conversation: {
+    icon: Mic,
+    label: 'Live Conversation',
+    description: 'Natural back-and-forth dialogue practice',
+    color: 'pink',
+    scenario: 'casual_conversation',
+  },
+};
+
+// Disposition-based UI configurations
+const DISPOSITION_UI = {
+  cautious: {
+    greeting: "You're doing great just by being here",
+    encouragement: "Every conversation is a chance to grow",
+    progressLabel: "Your journey so far",
+    ctaText: "When you're ready",
+    showSessionCount: false,
+  },
+  anxious: {
+    greeting: "Welcome back! No pressure today",
+    encouragement: "Small steps lead to big changes",
+    progressLabel: "You've shown up",
+    ctaText: "Try something gentle",
+    showSessionCount: false,
+  },
+  neutral: {
+    greeting: "Good to see you",
+    encouragement: "Your style is evolving naturally",
+    progressLabel: "Your progress",
+    ctaText: "Ready to practice?",
+    showSessionCount: true,
+  },
+  confident: {
+    greeting: "Welcome back",
+    encouragement: "Let's refine your edge",
+    progressLabel: "Your growth trajectory",
+    ctaText: "Challenge yourself",
+    showSessionCount: true,
+  },
+  overconfident: {
+    greeting: "Back for more",
+    encouragement: "Mastery comes from deliberate practice",
+    progressLabel: "Sessions completed",
+    ctaText: "Push your limits",
+    showSessionCount: true,
+  },
+};
 
 const Dashboard = () => {
-  const { user, logout, accessToken } = useAuth();
-  const { sessions, stats, getUserSessions, getUserStats, getProgressTrends } = useSession();
+  const { user, logout } = useAuth();
+  const { sessions, getUserSessions } = useSession();
   const { isDarkMode, toggleTheme } = useTheme();
-  const [trends, setTrends] = useState(null);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
   
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [experimentCompleted, setExperimentCompleted] = useState(false);
+  const [expandedSession, setExpandedSession] = useState(null);
+
+  // Check if coming from onboarding
   useEffect(() => {
-    // Wait for access token before making API calls
-    if (!accessToken) return;
-    
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([
-        getUserSessions(1, 5),
-        getUserStats(),
-        getProgressTrends(30).then((res) => {
-          if (res.success) setTrends(res.data);
-        }),
+    if (location.state?.fromOnboarding) {
+      setShowWelcome(true);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
+  // Load behavioral profile and sessions
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [profileRes] = await Promise.all([
+        api.get('/auth/behavioral-profile'),
+        getUserSessions(1, 10),
       ]);
-      setLoading(false);
-    };
+      setProfile(profileRes.data.data);
+    } catch (err) {
+      console.error('Error loading profile:', err);
+      setProfile({
+        style: null,
+        reflection: 'Complete a conversation to discover your communication style.',
+        hasBaseline: false,
+        disposition: 'neutral',
+        feedbackStrategy: { tone: 'balanced', showNumbers: false },
+      });
+    }
+    setLoading(false);
+  }, [getUserSessions]);
+
+  useEffect(() => {
     loadData();
-  }, [accessToken, getUserSessions, getUserStats, getProgressTrends]);
+  }, [loadData]);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  const chartData = {
-    labels: trends?.trends?.map((t) => new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) || [],
-    datasets: [
-      {
-        label: 'Overall Score',
-        data: trends?.trends?.map((t) => t.scores?.overall) || [],
-        borderColor: 'rgb(139, 92, 246)',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
-      },
-    ],
+  const handleStartPractice = (type) => {
+    const config = PRACTICE_TYPES[type];
+    navigate('/session/setup', { 
+      state: { 
+        preselectedScenario: config?.scenario,
+        fromDashboard: true 
+      } 
+    });
   };
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: 'rgb(255, 255, 255)',
-        borderColor: 'rgb(229, 231, 235)',
-        borderWidth: 1,
-        titleColor: 'rgb(17, 24, 39)',
-        bodyColor: 'rgb(75, 85, 99)',
-      },
-    },
-    scales: {
-      x: {
-        grid: { color: 'rgba(229, 231, 235, 0.5)' },
-        ticks: { color: 'rgb(107, 114, 128)' },
-      },
-      y: {
-        min: 0,
-        max: 100,
-        grid: { color: 'rgba(229, 231, 235, 0.5)' },
-        ticks: { color: 'rgb(107, 114, 128)' },
-      },
-    },
+  const handleExperimentComplete = () => {
+    setExperimentCompleted(true);
+    setTimeout(() => setExperimentCompleted(false), 3000);
   };
 
-  const skillData = stats?.skillAverages || {
-    confidence: 0,
-    clarity: 0,
-    empathy: 0,
-    communication: 0,
+  // Get disposition-based UI config
+  const disposition = profile?.disposition || 'neutral';
+  const uiConfig = DISPOSITION_UI[disposition] || DISPOSITION_UI.neutral;
+
+  // Get color classes for practice types
+  const getColorClasses = (color) => {
+    const colors = {
+      primary: 'bg-primary-100 text-primary-600 group-hover:bg-primary-500',
+      secondary: 'bg-secondary-100 text-secondary-600 group-hover:bg-secondary-500',
+      accent: 'bg-accent-100 text-accent-600 group-hover:bg-accent-500',
+      pink: 'bg-pink-100 text-pink-600 group-hover:bg-pink-500',
+    };
+    return colors[color] || colors.primary;
   };
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header */}
       <header className={`sticky top-0 z-50 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo - Links to Landing Page */}
             <Link to="/" className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <span className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>AURA</span>
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
-              {/* Avatar Emojis */}
-              <div className="hidden sm:flex items-center -space-x-1 ml-1">
-                <span className="text-lg">👩‍💼</span>
-                <span className="text-lg">👨‍💻</span>
-                <span className="text-lg">🧑‍🎓</span>
-              </div>
+              <span className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>AURA</span>
             </Link>
 
-            {/* Center Navigation */}
-            <div className="hidden lg:flex items-center gap-8">
-              <Link to="/dashboard" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Dashboard</Link>
-              <Link to="/session/setup" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Practice</Link>
-              <a href="#" className="text-pink-500 hover:text-pink-600 text-sm font-medium transition-colors flex items-center gap-1 group">
-                Trending
-                <svg className="w-3 h-3 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </a>
-              <a href="#" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Progress</a>
-            </div>
-            
-            {/* Right Side */}
             <div className="flex items-center gap-3">
-              {/* Dark Mode Toggle */}
               <button
                 onClick={toggleTheme}
                 className={`p-2 rounded-lg ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-yellow-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} transition-colors`}
-                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
 
-              <Link to="/session/setup" className="px-4 py-2 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition-colors flex items-center gap-2 text-sm">
-                <Plus className="w-4 h-4" />
-                New Session
-              </Link>
               <div className="relative group">
                 <button className={`flex items-center gap-2 p-2 rounded-lg ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}>
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-medium text-sm">
@@ -198,185 +230,271 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome Message (shown after onboarding) */}
+        {showWelcome && (
+          <div className={`mb-8 p-6 rounded-2xl ${isDarkMode ? 'bg-gradient-to-r from-primary-900/50 to-secondary-900/50 border-primary-800' : 'bg-gradient-to-r from-primary-50 to-secondary-50 border-primary-100'} border animate-fade-in`}>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center flex-shrink-0">
+                <Star className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-1`}>
+                  Thanks for sharing a bit about yourself!
+                </h2>
+                <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+                  I've put together some thoughts based on our conversation. Take a look below.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowWelcome(false)}
+                className={`${isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'} text-xl`}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Greeting Section - Adaptive based on disposition */}
         <div className="mb-8">
           <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-1`}>
-            Welcome back, {user?.name?.split(' ')[0] || 'User'}!
+            {uiConfig.greeting}, {user?.name?.split(' ')[0] || 'there'}! 👋
           </h1>
-          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Track your progress and continue improving your communication skills.</p>
+          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
+            {uiConfig.encouragement}
+          </p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-5 border shadow-sm`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-primary-600" />
-              </div>
-              <div>
-                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Total Sessions</p>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.totalSessions || 0}</p>
-              </div>
-            </div>
-          </div>
-          <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-5 border shadow-sm`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-accent-100 flex items-center justify-center">
-                <Award className="w-5 h-5 text-accent-600" />
-              </div>
-              <div>
-                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Average Score</p>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{formatScore(stats?.averageScore)}%</p>
-              </div>
-            </div>
-          </div>
-          <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-5 border shadow-sm`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-secondary-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-secondary-600" />
-              </div>
-              <div>
-                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>This Week</p>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {trends?.totalSessions || 0} <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>sessions</span>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-5 border shadow-sm`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                <Target className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Best Skill</p>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} capitalize`}>
-                  {Object.entries(skillData).sort((a, b) => b[1] - a[1])[0]?.[0] || '-'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Progress Chart */}
-          <div className={`lg:col-span-2 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-6 border shadow-sm`}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Progress Over Time</h2>
-              <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Last 30 days</span>
-            </div>
-            <div className="h-64">
-              {trends?.trends?.length > 0 ? (
-                <Line data={chartData} options={chartOptions} />
-              ) : (
-                <div className={`h-full flex items-center justify-center ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Complete sessions to see your progress
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Skills Breakdown */}
-          <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-6 border shadow-sm`}>
-            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-6`}>Skills Breakdown</h2>
-            <div className="space-y-4">
-              {Object.entries(skillData).map(([skill, score]) => {
-                const level = getScoreLevel(score);
-                return (
-                  <div key={skill}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} capitalize`}>{skill}</span>
-                      <span className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-medium`}>{formatScore(score)}%</span>
-                    </div>
-                    <div className={`h-2 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-full overflow-hidden`}>
-                      <div
-                        className="h-full bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full transition-all duration-500"
-                        style={{ width: `${score}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Sessions */}
-        <div className={`mt-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-6 border shadow-sm`}>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Recent Sessions</h2>
-            {sessions.length > 0 && (
-              <button className="text-primary-600 hover:text-primary-700 text-sm flex items-center gap-1">
-                View All <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          
+        {/* Main Reflection Card */}
+        <div className={`rounded-2xl ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border shadow-sm overflow-hidden mb-8`}>
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-500" />
-            </div>
-          ) : sessions.length > 0 ? (
-            <div className="space-y-3">
-              {sessions.map((session) => (
-                <Link
-                  key={session._id}
-                  to={session.status === 'completed' ? `/feedback/${session._id}` : '#'}
-                  className={`block p-4 rounded-xl ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 border-gray-600' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} border transition-colors`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-primary-600" />
-                      </div>
-                      <div>
-                        <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-medium`}>
-                          {SCENARIO_LABELS[session.scenario] || session.scenario}
-                        </p>
-                        <div className={`flex items-center gap-3 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatDuration(session.duration || 0)}
-                          </span>
-                          <span>{formatRelativeTime(session.createdAt)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {session.scores?.overall && (
-                        <div className="text-right">
-                          <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-semibold`}>{session.scores.overall}%</p>
-                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {getScoreLevel(session.scores.overall).label}
-                          </p>
-                        </div>
-                      )}
-                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                        session.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        session.status === 'analyzing' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-primary-100 text-primary-700'
-                      }`}>
-                        {session.status}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+            <div className="p-8 flex justify-center">
+              <RefreshCw className="w-8 h-8 text-primary-500 animate-spin" />
             </div>
           ) : (
-            <div className="text-center py-12">
-              <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-center mx-auto mb-4`}>
-                <BarChart3 className={`w-8 h-8 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+            <>
+              {/* Communication Style Badge */}
+              {profile?.style && profile.hasBaseline && (
+                <div className="px-6 pt-6 pb-2">
+                  <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${isDarkMode ? 'bg-primary-900/50 text-primary-300' : 'bg-primary-100 text-primary-700'}`}>
+                    <Sparkles className="w-4 h-4" />
+                    {profile.style}
+                  </span>
+                </div>
+              )}
+
+              {/* Main Reflection */}
+              <div className={`mx-6 my-4 p-5 rounded-xl ${isDarkMode ? 'bg-gray-700/50' : 'bg-gradient-to-br from-primary-50 to-secondary-50'}`}>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center flex-shrink-0">
+                    <Lightbulb className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className={`text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'} font-medium leading-relaxed`}>
+                      "{profile?.reflection || 'You have a natural and authentic communication style.'}"
+                    </p>
+                    {uiConfig.showSessionCount && profile?.sessionCount > 0 && (
+                      <p className={`text-sm mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Based on {profile.sessionCount} practice session{profile.sessionCount > 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}>No sessions yet. Start your first practice session!</p>
-              <Link to="/session/setup" className="px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors inline-flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Start Session
-              </Link>
-            </div>
+
+              {/* Focus Area (Opportunity) */}
+              {profile?.focusArea && (
+                <div className={`mx-6 mb-4 p-4 rounded-xl ${isDarkMode ? 'bg-accent-900/30 border-accent-800' : 'bg-accent-50 border-accent-100'} border cursor-pointer hover:shadow-md transition-shadow`}>
+                  <div className="flex items-start gap-3">
+                    <Target className={`w-5 h-5 ${isDarkMode ? 'text-accent-400' : 'text-accent-600'} mt-0.5 flex-shrink-0`} />
+                    <div>
+                      <h4 className={`font-medium ${isDarkMode ? 'text-accent-300' : 'text-accent-800'} mb-1`}>
+                        Opportunity: {profile.focusArea}
+                      </h4>
+                      {profile.focusRationale && (
+                        <p className={`text-sm ${isDarkMode ? 'text-accent-400' : 'text-accent-700'}`}>
+                          {profile.focusRationale}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Micro-Experiment Card - Interactive */}
+              {profile?.microExperiment && (
+                <div className={`mx-6 mb-6 p-4 rounded-xl ${isDarkMode ? 'bg-secondary-900/30 border-secondary-800' : 'bg-secondary-50 border-secondary-100'} border`}>
+                  <div className="flex items-start gap-3">
+                    <FlaskConical className={`w-5 h-5 ${isDarkMode ? 'text-secondary-400' : 'text-secondary-600'} mt-0.5 flex-shrink-0`} />
+                    <div className="flex-1">
+                      <h4 className={`font-medium ${isDarkMode ? 'text-secondary-300' : 'text-secondary-800'} mb-1`}>
+                        Try this in your next conversation
+                      </h4>
+                      <p className={`text-sm ${isDarkMode ? 'text-secondary-400' : 'text-secondary-700'} mb-3`}>
+                        {profile.microExperiment}
+                      </p>
+                      <button
+                        onClick={handleExperimentComplete}
+                        disabled={experimentCompleted}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          experimentCompleted 
+                            ? 'bg-green-500 text-white' 
+                            : isDarkMode 
+                              ? 'bg-secondary-700 hover:bg-secondary-600 text-secondary-200' 
+                              : 'bg-secondary-200 hover:bg-secondary-300 text-secondary-800'
+                        }`}
+                      >
+                        {experimentCompleted ? (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Great job!
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4" />
+                            I tried this!
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* No baseline yet - encourage first session */}
+              {!profile?.hasBaseline && (
+                <div className={`mx-6 mb-6 p-5 rounded-xl ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'} text-center`}>
+                  <Heart className={`w-8 h-8 mx-auto mb-3 ${isDarkMode ? 'text-pink-400' : 'text-pink-500'}`} />
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Start a practice session to discover your unique communication style
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
+
+        {/* Practice Options - Interactive Cards */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {uiConfig.ctaText}
+            </h2>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {Object.entries(PRACTICE_TYPES).slice(0, 4).map(([type, config]) => {
+              const Icon = config.icon;
+              return (
+                <button
+                  key={type}
+                  onClick={() => handleStartPractice(type)}
+                  className={`group p-5 rounded-xl ${isDarkMode ? 'bg-gray-800 hover:bg-gray-750 border-gray-700' : 'bg-white hover:bg-gray-50 border-gray-200'} border text-left transition-all hover:shadow-lg hover:-translate-y-1`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 rounded-xl ${getColorClasses(config.color)} flex items-center justify-center transition-colors group-hover:text-white`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-1 flex items-center gap-2`}>
+                        {config.label}
+                        <ArrowRight className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all`} />
+                      </h3>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {config.description}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Start Button */}
+          <Link
+            to="/session/setup"
+            className={`mt-4 w-full p-4 rounded-xl ${isDarkMode ? 'bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-500 hover:to-secondary-500' : 'bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600'} text-white flex items-center justify-center gap-2 font-semibold transition-all hover:shadow-lg`}
+          >
+            <Zap className="w-5 h-5" />
+            Quick Start Any Session
+          </Link>
+        </div>
+
+        {/* Recent Sessions - Narrative Style */}
+        {sessions && sessions.length > 0 && (
+          <div className={`rounded-2xl ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border shadow-sm overflow-hidden`}>
+            <div className={`p-5 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <h2 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {uiConfig.progressLabel}
+              </h2>
+            </div>
+            <div className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
+              {sessions.slice(0, 5).map((session, index) => (
+                <div key={session._id}>
+                  <Link
+                    to={`/feedback/${session._id}`}
+                    onClick={(e) => {
+                      if (session.status !== 'completed') {
+                        e.preventDefault();
+                      }
+                    }}
+                    className={`flex items-center gap-4 p-4 ${isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-50'} transition-colors cursor-pointer`}
+                  >
+                    <div className={`w-10 h-10 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-center`}>
+                      <Calendar className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} truncate`}>
+                        {SCENARIO_LABELS[session.scenario] || session.scenario?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Practice Session'}
+                      </p>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} flex items-center gap-2`}>
+                        <Clock className="w-3 h-3" />
+                        {formatDuration(session.duration || 0)} • {formatRelativeTime(session.createdAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {session.status === 'completed' && (
+                        <span className={`text-sm ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                          View insights
+                        </span>
+                      )}
+                      {session.status === 'analyzing' && (
+                        <span className={`text-sm ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'} flex items-center gap-1`}>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          Reflecting...
+                        </span>
+                      )}
+                      <ChevronRight className={`w-5 h-5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State for New Users */}
+        {(!sessions || sessions.length === 0) && !loading && (
+          <div className={`rounded-2xl ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border shadow-sm p-8 text-center`}>
+            <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-center mx-auto mb-4`}>
+              <MessageSquare className={`w-8 h-8 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+            </div>
+            <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
+              Your practice history will appear here
+            </h3>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}>
+              Each conversation helps us understand your unique style better
+            </p>
+            <Link 
+              to="/session/setup" 
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Start Your First Session
+            </Link>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.model.js';
 import config from '../config/env.js';
 import logger from '../utils/logger.js';
+import { getProfileForDisplay, getFeedbackStrategy } from '../services/behavioralProfile.service.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, config.jwtSecret, {
@@ -163,6 +164,80 @@ export const updateProfile = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Complete onboarding and mark user as onboarded
+ */
+export const completeOnboarding = async (req, res, next) => {
+  try {
+    const { sessionId } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { 
+        onboardingCompleted: true,
+        onboardingSessionId: sessionId || null,
+      },
+      { new: true }
+    );
+
+    logger.info(`[Auth] Onboarding completed for user: ${user.email}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        onboardingCompleted: true,
+        user: user.toJSON(),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get behavioral profile for dashboard display
+ * Returns only human-readable content, never raw metrics
+ */
+export const getBehavioralProfile = async (req, res, next) => {
+  try {
+    const profile = await getProfileForDisplay(req.user._id);
+    const feedbackStrategy = await getFeedbackStrategy(req.user._id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...profile,
+        feedbackStrategy: {
+          tone: feedbackStrategy.tone,
+          emphasis: feedbackStrategy.emphasis,
+          showNumbers: feedbackStrategy.showNumbers,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Check onboarding status
+ */
+export const getOnboardingStatus = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        onboardingCompleted: user?.onboardingCompleted || false,
+        hasBaseline: user?.behavioralProfile?.hasBaseline || false,
+      },
     });
   } catch (error) {
     next(error);

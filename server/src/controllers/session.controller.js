@@ -4,6 +4,7 @@ import { generateInterviewerResponse } from '../services/llm.service.js';
 import { analyzeSession } from '../services/ml.service.js';
 import { textToSpeech, isAvailable as isTTSAvailable } from '../services/elevenlabs.service.js';
 import { transcribeAudio, isAvailable as isSTTAvailable } from '../services/whisper.service.js';
+import { getProfileContext, updateBehavioralProfile } from '../services/behavioralProfile.service.js';
 import logger from '../utils/logger.js';
 
 export const startSession = async (req, res, next) => {
@@ -25,7 +26,9 @@ export const startSession = async (req, res, next) => {
       startedAt: new Date(),
     });
 
-    const systemPrompt = getSystemPrompt(scenario, skillFocus);
+    // Get behavioral profile context for adaptive AI behavior
+    const profileContext = await getProfileContext(req.user._id);
+    const systemPrompt = getSystemPrompt(scenario, skillFocus, profileContext);
     const initialMessage = await generateInterviewerResponse([], systemPrompt);
 
     session.addMessage('system', systemPrompt);
@@ -326,7 +329,7 @@ export const getUserStats = async (req, res, next) => {
   }
 };
 
-const getSystemPrompt = (scenario, skillFocus) => {
+const getSystemPrompt = (scenario, skillFocus, profileContext = null) => {
   const scenarioPrompts = {
     'technical-interview': `You are a senior technical interviewer at a top tech company conducting a software engineering interview.
 Your role is to assess the candidate's technical depth, problem-solving ability, and communication skills.
@@ -343,16 +346,49 @@ Ask probing questions about their assumptions and methodology.`,
     'general-practice': `You are an experienced interview coach helping someone prepare for job interviews.
 Ask a variety of common and challenging interview questions.
 Help them practice articulating their experiences clearly.`,
+    'job_interview': `You are conducting a realistic job interview for a professional role.
+Ask relevant behavioral and situational questions.
+Create a supportive but realistic interview experience.`,
+    'presentation': `You are an audience member during a presentation practice.
+Listen actively and ask clarifying questions.
+Provide natural reactions that help the speaker improve.`,
+    'group_discussion': `You are a participant in a group discussion.
+Engage naturally in collaborative dialogue.
+Share perspectives and build on ideas together.`,
+    'casual_conversation': `You are having a natural, friendly conversation.
+Be warm, curious, and engaging.
+Help the person feel comfortable expressing themselves.`,
+    'onboarding': `You are a friendly AI coach conducting a brief get-to-know-you conversation.
+Ask open-ended, neutral questions to understand the person's natural communication style.
+Be warm, encouraging, and non-judgmental. This is NOT an evaluation.`,
   };
 
   const focusInstructions = skillFocus.length > 0
     ? `Focus areas to assess: ${skillFocus.join(', ')}.`
     : '';
 
+  // Build adaptive context from behavioral profile
+  let adaptiveContext = '';
+  if (profileContext) {
+    const hints = profileContext.adaptationHints || [];
+    if (hints.length > 0) {
+      adaptiveContext = `
+## ADAPTIVE COACHING CONTEXT
+This person's communication style: ${profileContext.styleName || 'Natural communicator'}
+Current focus area: ${profileContext.currentFocus || 'General improvement'}
+
+Adaptation guidelines for this session:
+${hints.map(h => `- ${h}`).join('\n')}
+
+Remember: Adapt your tone, pacing, and question difficulty based on these guidelines.
+`;
+    }
+  }
+
   return `${scenarioPrompts[scenario] || scenarioPrompts['general-practice']}
 
 ${focusInstructions}
-
+${adaptiveContext}
 ## CRITICAL RULES - FOLLOW EXACTLY:
 
 1. **ALWAYS END WITH A QUESTION**: Every response MUST end with a relevant follow-up question. Never end with just an acknowledgment.
@@ -424,7 +460,16 @@ const triggerMLAnalysis = async (sessionId, videoMetrics = null) => {
       await user.save();
     }
 
-    logger.info(`Session ${sessionId} analysis completed with scores: confidence=${analysisResult.scores.confidence}, clarity=${analysisResult.scores.clarity}, empathy=${analysisResult.scores.empathy}, communication=${analysisResult.scores.communication}`);
+    // Update behavioral profile with new session analysis
+    const isOnboarding = session.scenario === 'onboarding';
+    try {
+      await updateBehavioralProfile(session.userId, analysisResult.scores, isOnboarding);
+      logger.info(`[BehavioralProfile] Updated for user ${session.userId} after session ${sessionId}`);
+    } catch (profileErr) {
+      logger.error(`[BehavioralProfile] Error updating: ${profileErr.message}`);
+    }
+
+    logger.info(`Session ${sessionId} analysis completed`);
   } catch (err) {
     logger.error(`Error completing session analysis: ${err.message}`);
     
