@@ -7,14 +7,51 @@
  * 3. Access token is used for API calls (Bearer token)
  * 4. User info synced with backend on first login
  */
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
 
-// Module-level flag to prevent double init in StrictMode
-let globalInitLock = false;
+// Session storage keys
+const STORAGE_KEY_USER = 'aura_auth_user';
+const STORAGE_KEY_SYNCED = 'aura_auth_synced';
+
+/**
+ * Get cached user from sessionStorage
+ */
+const getCachedUser = (auth0Sub) => {
+  try {
+    const synced = sessionStorage.getItem(STORAGE_KEY_SYNCED);
+    if (synced === auth0Sub) {
+      const cached = sessionStorage.getItem(STORAGE_KEY_USER);
+      return cached ? JSON.parse(cached) : null;
+    }
+  } catch (e) {
+    console.error('[Auth] Cache read error:', e);
+  }
+  return null;
+};
+
+/**
+ * Cache user in sessionStorage
+ */
+const cacheUser = (auth0Sub, userData) => {
+  try {
+    sessionStorage.setItem(STORAGE_KEY_SYNCED, auth0Sub);
+    sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userData));
+  } catch (e) {
+    console.error('[Auth] Cache write error:', e);
+  }
+};
+
+/**
+ * Clear cached user from sessionStorage
+ */
+const clearCachedUser = () => {
+  sessionStorage.removeItem(STORAGE_KEY_SYNCED);
+  sessionStorage.removeItem(STORAGE_KEY_USER);
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -40,9 +77,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
-  
-  // Use ref to track initialization (survives StrictMode remount)
-  const initRef = useRef(false);
+  const [initialized, setInitialized] = useState(false);
 
   /**
    * Sync Auth0 user with backend
@@ -76,6 +111,7 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Get access token and sync user on Auth0 authentication
+   * Uses sessionStorage to cache user data and prevent repeated syncs
    */
   useEffect(() => {
     // Don't do anything while Auth0 is still loading
@@ -83,14 +119,13 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    // Prevent concurrent init
-    if (initRef.current || globalInitLock) {
+    // Already initialized in this component lifecycle
+    if (initialized) {
       return;
     }
 
-    // Lock immediately
-    initRef.current = true;
-    globalInitLock = true;
+    // Mark as initialized immediately
+    setInitialized(true);
 
     const initAuth = async () => {
       // Clear any old legacy tokens
@@ -98,13 +133,23 @@ export const AuthProvider = ({ children }) => {
       
       if (auth0IsAuthenticated && auth0User) {
         try {
+          // Get access token
           const token = await getAccessTokenSilently();
           setAccessToken(token);
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
-          // Sync with backend
-          const syncedUser = await syncUserWithBackend(token, auth0User);
-          setUser(syncedUser);
+          // Check if we have cached user data for this Auth0 user
+          const cachedUser = getCachedUser(auth0User.sub);
+          
+          if (cachedUser) {
+            // Use cached user data - no sync needed
+            setUser(cachedUser);
+          } else {
+            // First time - sync with backend and cache
+            const syncedUser = await syncUserWithBackend(token, auth0User);
+            setUser(syncedUser);
+            cacheUser(auth0User.sub, syncedUser);
+          }
         } catch (err) {
           console.error('[Auth] Token retrieval failed:', err);
           setError('Failed to authenticate. Please try again.');
@@ -113,6 +158,7 @@ export const AuthProvider = ({ children }) => {
         // Not authenticated - clear state
         setUser(null);
         setAccessToken(null);
+        clearCachedUser();
         delete api.defaults.headers.common['Authorization'];
       }
       
@@ -121,7 +167,7 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth0Loading, auth0IsAuthenticated]);
+  }, [auth0Loading, auth0IsAuthenticated, initialized]);
 
   /**
    * Login - Redirects to Auth0 Universal Login
@@ -144,9 +190,8 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setUser(null);
     setAccessToken(null);
-    // Reset locks so next login will sync
-    initRef.current = false;
-    globalInitLock = false;
+    setInitialized(false);
+    clearCachedUser();
     delete api.defaults.headers.common['Authorization'];
     
     auth0Logout({
