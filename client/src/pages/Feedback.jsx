@@ -71,8 +71,9 @@ const Feedback = () => {
   };
 
   useEffect(() => {
-    // Wait for access token before making API calls
-    if (!accessToken) return;
+    // Wait for access token or manual token before making API calls
+    const hasToken = accessToken || localStorage.getItem('aura_manual_token');
+    if (!hasToken) return;
     loadFeedback();
   }, [sessionId, accessToken]);
 

@@ -472,7 +472,7 @@ const InterviewSession = () => {
                   
                   {/* Video Perception runs in background when enabled */}
                   {isVideoAnalyzing && (
-                    <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-900/80 border border-accent-700">
+                    <div className="absolute top-16 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-900/80 border border-accent-700">
                       <Eye className="w-4 h-4 text-accent-400" />
                       <span className="text-accent-300 text-xs font-medium">
                         Video Analysis ({liveVideoMetrics?.total_frames || 0} frames)
