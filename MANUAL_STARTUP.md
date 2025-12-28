@@ -51,7 +51,7 @@ Open **4 separate terminal windows/tabs** and run these commands:
 ```bash
 cd /Users/rakshitjindal/Downloads/AURA-copy/AURA/perception
 source venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 5001
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 5001
 ```
 
 **Wait for:** `"All models loaded successfully"` message
@@ -63,7 +63,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 5001
 ```bash
 cd /Users/rakshitjindal/Downloads/AURA-copy/AURA/ml-service
 source venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 **Wait for:** `"Models loaded: ['confidence', 'clarity', 'empathy', 'communication']"` message

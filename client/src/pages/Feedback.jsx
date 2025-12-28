@@ -22,6 +22,13 @@ import {
   ArrowRight,
   CheckCircle,
   Heart,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Brain,
+  Mic,
+  Eye,
+  TrendingUp,
 } from 'lucide-react';
 import { formatDuration, formatDateTime } from '../utils/formatters';
 import { SCENARIO_LABELS } from '../utils/constants';
@@ -34,6 +41,7 @@ const Feedback = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
 
   const loadFeedback = async () => {
     setLoading(true);
@@ -249,7 +257,7 @@ const Feedback = () => {
         )}
 
         {/* Next Micro-Experiment */}
-        <div className={`rounded-2xl ${isDarkMode ? 'bg-secondary-900/30 border-secondary-800' : 'bg-secondary-50 border-secondary-100'} border p-6 mb-8`}>
+        <div className={`rounded-2xl ${isDarkMode ? 'bg-secondary-900/30 border-secondary-800' : 'bg-secondary-50 border-secondary-100'} border p-6 mb-6`}>
           <div className="flex items-start gap-4">
             <FlaskConical className={`w-6 h-6 ${isDarkMode ? 'text-secondary-400' : 'text-secondary-600'} mt-0.5 flex-shrink-0`} />
             <div>
@@ -262,6 +270,144 @@ const Feedback = () => {
             </div>
           </div>
         </div>
+
+        {/* View Insights Toggle */}
+        <button
+          onClick={() => setShowInsights(!showInsights)}
+          className={`w-full rounded-2xl ${isDarkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' : 'bg-white border-gray-200 hover:bg-gray-50'} border shadow-sm p-4 mb-6 flex items-center justify-between transition-colors`}
+        >
+          <div className="flex items-center gap-3">
+            <BarChart3 className={`w-5 h-5 ${isDarkMode ? 'text-primary-400' : 'text-primary-600'}`} />
+            <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              View Detailed Insights
+            </span>
+          </div>
+          {showInsights ? (
+            <ChevronUp className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+          ) : (
+            <ChevronDown className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+          )}
+        </button>
+
+        {/* Detailed Insights Panel */}
+        {showInsights && feedback?.scores && (
+          <div className={`rounded-2xl ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border shadow-sm overflow-hidden mb-8`}>
+            <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <h2 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} flex items-center gap-2`}>
+                <Brain className="w-5 h-5 text-primary-500" />
+                AI Analysis Metrics
+              </h2>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                Scores from NLP & Decision Layer analysis
+              </p>
+            </div>
+            
+            <div className="p-6">
+              {/* Score Grid */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {/* Confidence */}
+                <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className={`w-4 h-4 ${isDarkMode ? 'text-green-400' : 'text-green-600'}`} />
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Confidence</span>
+                  </div>
+                  <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {feedback.scores.confidence || 0}%
+                  </div>
+                  <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500 rounded-full transition-all"
+                      style={{ width: `${feedback.scores.confidence || 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Clarity */}
+                <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Clarity</span>
+                  </div>
+                  <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {feedback.scores.clarity || 0}%
+                  </div>
+                  <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 rounded-full transition-all"
+                      style={{ width: `${feedback.scores.clarity || 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Communication */}
+                <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mic className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Communication</span>
+                  </div>
+                  <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {feedback.scores.communication || 0}%
+                  </div>
+                  <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-500 rounded-full transition-all"
+                      style={{ width: `${feedback.scores.communication || 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Empathy */}
+                <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Heart className={`w-4 h-4 ${isDarkMode ? 'text-pink-400' : 'text-pink-600'}`} />
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Empathy</span>
+                  </div>
+                  <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {feedback.scores.empathy || 0}%
+                  </div>
+                  <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-pink-500 rounded-full transition-all"
+                      style={{ width: `${feedback.scores.empathy || 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Overall Score */}
+              <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-primary-900/30' : 'bg-primary-50'} mb-6`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-primary-300' : 'text-primary-700'}`}>Overall Score</span>
+                    <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {feedback.scores.overall || 0}%
+                    </div>
+                  </div>
+                  <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-primary-800' : 'bg-primary-100'} flex items-center justify-center`}>
+                    <BarChart3 className={`w-8 h-8 ${isDarkMode ? 'text-primary-300' : 'text-primary-600'}`} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Improvement Areas */}
+              {feedback?.feedback?.improvements && feedback.feedback.improvements.length > 0 && (
+                <div>
+                  <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-3 flex items-center gap-2`}>
+                    <Lightbulb className="w-4 h-4 text-yellow-500" />
+                    Areas for Improvement
+                  </h3>
+                  <div className="space-y-2">
+                    {feedback.feedback.improvements.map((item, i) => (
+                      <div key={i} className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'} text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Closing Message */}
         <div className={`text-center mb-8`}>

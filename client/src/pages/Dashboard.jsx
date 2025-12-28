@@ -114,6 +114,8 @@ const Dashboard = () => {
   const [showWelcome, setShowWelcome] = useState(false);
   const [experimentCompleted, setExperimentCompleted] = useState(false);
   const [expandedSession, setExpandedSession] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   // Check if coming from onboarding
   useEffect(() => {
@@ -123,15 +125,17 @@ const Dashboard = () => {
     }
   }, [location]);
 
-  // Load behavioral profile and sessions
+  // Load behavioral profile, sessions, and stats
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [profileRes] = await Promise.all([
+      const [profileRes, statsRes] = await Promise.all([
         api.get('/auth/behavioral-profile'),
+        api.get('/session/stats'),
         getUserSessions(1, 10),
       ]);
       setProfile(profileRes.data.data);
+      setStats(statsRes.data.data);
     } catch (err) {
       console.error('Error loading profile:', err);
       setProfile({
@@ -145,9 +149,12 @@ const Dashboard = () => {
     setLoading(false);
   }, [getUserSessions]);
 
+  // Wait for user to be available before loading data
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (user) {
+      loadData();
+    }
+  }, [user, loadData]);
 
   const handleLogout = () => {
     logout();
@@ -471,6 +478,107 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Performance Analysis Section */}
+        {stats && stats.validSessions > 0 && (
+          <div className={`mt-8 rounded-2xl ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border shadow-sm overflow-hidden`}>
+            <button
+              onClick={() => setShowAnalysis(!showAnalysis)}
+              className={`w-full p-5 flex items-center justify-between ${isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-50'} transition-colors`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center`}>
+                  <Target className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-left">
+                  <h2 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Performance Analysis
+                  </h2>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {stats.validSessions} analyzed session{stats.validSessions !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className={`w-5 h-5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} transition-transform ${showAnalysis ? 'rotate-90' : ''}`} />
+            </button>
+
+            {showAnalysis && (
+              <div className={`p-5 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                {/* Overall Average Scores */}
+                <div className="mb-6">
+                  <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4 flex items-center gap-2`}>
+                    <Star className="w-4 h-4 text-yellow-500" />
+                    Overall Average
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} text-center`}>
+                      <div className={`text-2xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                        {stats.skillAverages?.confidence || 0}%
+                      </div>
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Confidence</div>
+                    </div>
+                    <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} text-center`}>
+                      <div className={`text-2xl font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                        {stats.skillAverages?.clarity || 0}%
+                      </div>
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Clarity</div>
+                    </div>
+                    <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} text-center`}>
+                      <div className={`text-2xl font-bold ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                        {stats.skillAverages?.communication || 0}%
+                      </div>
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Communication</div>
+                    </div>
+                    <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} text-center`}>
+                      <div className={`text-2xl font-bold ${isDarkMode ? 'text-pink-400' : 'text-pink-600'}`}>
+                        {stats.skillAverages?.empathy || 0}%
+                      </div>
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Empathy</div>
+                    </div>
+                  </div>
+                  <div className={`mt-3 p-4 rounded-xl ${isDarkMode ? 'bg-primary-900/30' : 'bg-primary-50'} flex items-center justify-between`}>
+                    <span className={`font-medium ${isDarkMode ? 'text-primary-300' : 'text-primary-700'}`}>Overall Average</span>
+                    <span className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats.averageScore || 0}%</span>
+                  </div>
+                </div>
+
+                {/* Session-by-Session Analysis */}
+                {stats.sessionHistory && stats.sessionHistory.length > 0 && (
+                  <div>
+                    <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4 flex items-center gap-2`}>
+                      <Calendar className="w-4 h-4 text-primary-500" />
+                      Session-by-Session
+                    </h3>
+                    <div className="space-y-2">
+                      {stats.sessionHistory.map((session, index) => (
+                        <Link
+                          key={session.id}
+                          to={`/feedback/${session.id}`}
+                          className={`block p-3 rounded-xl ${isDarkMode ? 'bg-gray-700 hover:bg-gray-650' : 'bg-gray-50 hover:bg-gray-100'} transition-colors`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                              {SCENARIO_LABELS[session.scenario] || session.scenario?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                            <span className={`text-lg font-bold ${isDarkMode ? 'text-primary-400' : 'text-primary-600'}`}>
+                              {session.scores.overall}%
+                            </span>
+                          </div>
+                          <div className="flex gap-4 text-xs">
+                            <span className={isDarkMode ? 'text-green-400' : 'text-green-600'}>C: {session.scores.confidence}%</span>
+                            <span className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>Cl: {session.scores.clarity}%</span>
+                            <span className={isDarkMode ? 'text-purple-400' : 'text-purple-600'}>Co: {session.scores.communication}%</span>
+                            <span className={isDarkMode ? 'text-pink-400' : 'text-pink-600'}>E: {session.scores.empathy}%</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

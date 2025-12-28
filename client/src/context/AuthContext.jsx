@@ -150,6 +150,13 @@ export const AuthProvider = ({ children }) => {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // Mark onboarding as complete in local state
+  const markOnboardingComplete = useCallback(() => {
+    if (manualUser) {
+      setManualUser(prev => ({ ...prev, onboardingCompleted: true }));
+    }
+  }, [manualUser]);
+
   // Determine current user and auth state
   const user = manualUser || (auth0IsAuthenticated ? auth0User : null);
   const isAuthenticated = !!(manualUser || auth0IsAuthenticated);
@@ -168,6 +175,7 @@ export const AuthProvider = ({ children }) => {
       manualRegister,
       logout,
       clearError,
+      markOnboardingComplete,
     }}>
       {children}
     </AuthContext.Provider>

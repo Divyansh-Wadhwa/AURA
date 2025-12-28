@@ -39,8 +39,10 @@ export const startSession = async (req, res, next) => {
 
     // Generate TTS audio for initial message if voice is enabled and live mode
     let audioResponse = null;
+    logger.debug(`[Session] TTS available: ${isTTSAvailable()}, interaction mode: ${interactionMode}`);
     if (isTTSAvailable() && interactionMode === 'live') {
       audioResponse = await textToSpeech(initialMessage, session._id.toString());
+      logger.debug(`[Session] TTS response: ${audioResponse ? 'generated' : 'null'}`);
     }
 
     res.status(201).json({

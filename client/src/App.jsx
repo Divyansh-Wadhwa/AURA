@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Onboarding from './pages/Onboarding';
 import SessionSetup from './pages/SessionSetup';
 import InterviewSession from './pages/InterviewSession';
 import Feedback from './pages/Feedback';
@@ -15,9 +16,9 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Protected route - requires Auth0 authentication
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+// Protected route - requires authentication
+const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
+  const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
     return <LoadingSpinner />;
@@ -25,6 +26,11 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check if user needs onboarding (only for dashboard route, not onboarding itself)
+  if (!skipOnboardingCheck && user && user.onboardingCompleted === false) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return children;
@@ -59,6 +65,14 @@ function App() {
           }
         />
         <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute skipOnboardingCheck>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
@@ -69,7 +83,7 @@ function App() {
         <Route
           path="/session/setup"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute skipOnboardingCheck>
               <SessionSetup />
             </ProtectedRoute>
           }
@@ -77,7 +91,7 @@ function App() {
         <Route
           path="/session/:sessionId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute skipOnboardingCheck>
               <InterviewSession />
             </ProtectedRoute>
           }
@@ -85,7 +99,7 @@ function App() {
         <Route
           path="/feedback/:sessionId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute skipOnboardingCheck>
               <Feedback />
             </ProtectedRoute>
           }

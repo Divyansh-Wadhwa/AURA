@@ -24,16 +24,14 @@ const initializeTTSDir = async () => {
 };
 
 const checkElevenLabsAvailability = () => {
+  logger.debug(`[ElevenLabs] Checking availability - API key present: ${!!config.elevenlabsApiKey}`);
   if (!config.elevenlabsApiKey) {
     logger.warn('[ElevenLabs] API key not configured - voice responses disabled');
     return false;
   }
-  if (!config.enableVoiceResponses) {
-    logger.info('[ElevenLabs] Voice responses disabled by configuration');
-    return false;
-  }
+  // Voice responses enabled if API key is present
   elevenlabsAvailable = true;
-  logger.info('[ElevenLabs] Service initialized successfully');
+  logger.info(`[ElevenLabs] Service initialized successfully with voice: ${config.elevenlabsVoiceId}`);
   return true;
 };
 
@@ -48,6 +46,12 @@ initializeTTSDir();
  * @returns {Promise<{audioUrl: string, audioPath: string, duration: number} | null>}
  */
 export const textToSpeech = async (text, sessionId, options = {}) => {
+  // Re-check availability in case config wasn't ready at startup
+  if (!elevenlabsAvailable && config.elevenlabsApiKey) {
+    elevenlabsAvailable = true;
+    logger.info('[ElevenLabs] Service now available (late initialization)');
+  }
+  
   if (!elevenlabsAvailable) {
     logger.debug('[ElevenLabs] Service not available, skipping TTS');
     return null;
@@ -61,6 +65,8 @@ export const textToSpeech = async (text, sessionId, options = {}) => {
   try {
     const voiceId = options.voiceId || config.elevenlabsVoiceId;
     const modelId = options.modelId || 'eleven_monolingual_v1';
+    
+    logger.info(`[ElevenLabs] Generating TTS for session ${sessionId}, voice: ${voiceId}, text length: ${text.length}`);
     
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
@@ -206,9 +212,17 @@ export const getAvailableVoices = async () => {
 
 /**
  * Check if ElevenLabs service is available
+ * Re-checks config each time in case it wasn't loaded at startup
  * @returns {boolean}
  */
-export const isAvailable = () => elevenlabsAvailable;
+export const isAvailable = () => {
+  // Re-check in case config wasn't ready at startup
+  if (!elevenlabsAvailable && config.elevenlabsApiKey) {
+    elevenlabsAvailable = true;
+    logger.info('[ElevenLabs] Service now available (late initialization)');
+  }
+  return elevenlabsAvailable;
+};
 
 export default {
   textToSpeech,

@@ -147,49 +147,24 @@ const Landing = () => {
       <nav className={`fixed top-0 left-0 right-0 z-50 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} border-b`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo with Avatars */}
-            <div className="flex items-center gap-3">
-              <Link to="/" className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <span className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>AURA</span>
-              </Link>
-              {/* Avatar Emojis */}
-              <div className="hidden sm:flex items-center -space-x-1 ml-2">
-                <span className="text-xl">👩‍💼</span>
-                <span className="text-xl">👨‍💻</span>
-                <span className="text-xl">🧑‍🎓</span>
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
-            </div>
+              <span className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>AURA</span>
+            </Link>
 
-            {/* Center Navigation */}
-            <div className="hidden lg:flex items-center gap-8">
-              <a href="#how-it-works" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Why us?</a>
-              <a href="#features" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Pricing</a>
-              <a href="#features" className="text-pink-500 hover:text-pink-600 text-sm font-medium transition-colors flex items-center gap-1 group">
-                Trending
-                <svg className="w-3 h-3 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </a>
-              <a href="#testimonials" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Testimonials</a>
-              <a href="#" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors flex items-center gap-1 group`}>
-                For organizations
-                <svg className="w-3 h-3 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </a>
-              <a href="#" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Contact us</a>
-            </div>
-
-            {/* Right Side */}
-            <div className="flex items-center gap-3">
-              {/* Dark Mode Toggle */}
+            {/* Right Side - Navigation + CTA */}
+            <div className="flex items-center gap-6">
+              <div className="hidden md:flex items-center gap-6">
+                <a href="#features" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Features</a>
+                <a href="#how-it-works" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>How it works</a>
+                <a href="#testimonials" className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} text-sm font-medium transition-colors`}>Testimonials</a>
+              </div>
               <button
                 onClick={toggleTheme}
                 className={`p-2 rounded-lg ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-yellow-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} transition-colors`}
-                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>

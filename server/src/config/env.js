@@ -30,8 +30,8 @@ const config = {
   mlServiceUrl: process.env.ML_SERVICE_URL || 'http://localhost:8000',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   // ElevenLabs TTS Configuration
-  elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
-  elevenlabsVoiceId: process.env.ELEVENLABS_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL',
+  elevenlabsApiKey: process.env.ELEVENLABS_API_KEY?.trim(),
+  elevenlabsVoiceId: process.env.ELEVENLABS_VOICE_ID?.trim() || 'EXAVITQu4vr4xnSDxMaL',
   enableVoiceResponses: process.env.ENABLE_VOICE_RESPONSES === 'true',
   groqApiKey: process.env.GROQ_API_KEY,
 };

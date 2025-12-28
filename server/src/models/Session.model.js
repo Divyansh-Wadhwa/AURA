@@ -117,7 +117,7 @@ const sessionSchema = new mongoose.Schema(
     },
     sessionType: {
       type: String,
-      enum: ['interview', 'group-discussion', 'presentation'],
+      enum: ['interview', 'group-discussion', 'presentation', 'onboarding'],
       default: 'interview',
     },
     interactionMode: {
@@ -133,6 +133,11 @@ const sessionSchema = new mongoose.Schema(
         'hr-interview',
         'case-study',
         'general-practice',
+        'onboarding',
+        'job_interview',
+        'presentation',
+        'group_discussion',
+        'casual_conversation',
       ],
       default: 'general-practice',
     },
@@ -214,33 +219,61 @@ sessionSchema.statics.getUserStats = async function (userId) {
         empathy: 0,
         communication: 0,
       },
+      sessionHistory: [],
     };
   }
 
-  const validSessions = sessions.filter((s) => s.scores?.overall);
+  // Filter out sessions with placeholder/fallback scores (all exactly 70) or no transcript
+  const validSessions = sessions.filter((s) => {
+    const hasScores = s.scores?.overall && s.scores.overall > 0;
+    const hasTranscript = s.transcript && s.transcript.length > 1;
+    const isNotPlaceholder = !(
+      s.scores?.confidence === 70 &&
+      s.scores?.clarity === 70 &&
+      s.scores?.empathy === 70 &&
+      s.scores?.communication === 70
+    );
+    return hasScores && hasTranscript && isNotPlaceholder;
+  });
+
   const totalSessions = sessions.length;
+  const validCount = validSessions.length || 1;
   
   const averageScore =
-    validSessions.reduce((sum, s) => sum + (s.scores?.overall || 0), 0) /
-    (validSessions.length || 1);
+    validSessions.reduce((sum, s) => sum + (s.scores?.overall || 0), 0) / validCount;
 
   const skillAverages = {
     confidence:
-      validSessions.reduce((sum, s) => sum + (s.scores?.confidence || 0), 0) /
-      (validSessions.length || 1),
+      validSessions.reduce((sum, s) => sum + (s.scores?.confidence || 0), 0) / validCount,
     clarity:
-      validSessions.reduce((sum, s) => sum + (s.scores?.clarity || 0), 0) /
-      (validSessions.length || 1),
+      validSessions.reduce((sum, s) => sum + (s.scores?.clarity || 0), 0) / validCount,
     empathy:
-      validSessions.reduce((sum, s) => sum + (s.scores?.empathy || 0), 0) /
-      (validSessions.length || 1),
+      validSessions.reduce((sum, s) => sum + (s.scores?.empathy || 0), 0) / validCount,
     communication:
-      validSessions.reduce((sum, s) => sum + (s.scores?.communication || 0), 0) /
-      (validSessions.length || 1),
+      validSessions.reduce((sum, s) => sum + (s.scores?.communication || 0), 0) / validCount,
   };
+
+  // Session history for session-by-session view (last 10)
+  const sessionHistory = validSessions
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 10)
+    .map((s) => ({
+      id: s._id,
+      date: s.createdAt,
+      scenario: s.scenario,
+      duration: s.duration,
+      scores: {
+        overall: s.scores?.overall || 0,
+        confidence: s.scores?.confidence || 0,
+        clarity: s.scores?.clarity || 0,
+        empathy: s.scores?.empathy || 0,
+        communication: s.scores?.communication || 0,
+      },
+    }));
 
   return {
     totalSessions,
+    validSessions: validSessions.length,
     averageScore: Math.round(averageScore),
     skillAverages: {
       confidence: Math.round(skillAverages.confidence),
@@ -248,6 +281,7 @@ sessionSchema.statics.getUserStats = async function (userId) {
       empathy: Math.round(skillAverages.empathy),
       communication: Math.round(skillAverages.communication),
     },
+    sessionHistory,
   };
 };
 

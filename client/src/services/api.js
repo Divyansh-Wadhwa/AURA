@@ -1,6 +1,6 @@
 /**
- * API Service - Simple axios instance
- * Token is set by AuthContext after Auth0 login
+ * API Service - Axios instance with auth interceptor
+ * Automatically adds auth token from localStorage to all requests
  */
 import axios from 'axios';
 
@@ -13,5 +13,20 @@ const api = axios.create({
   },
   timeout: 30000,
 });
+
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    // Check for manual token first
+    const manualToken = localStorage.getItem('aura_manual_token');
+    if (manualToken) {
+      config.headers.Authorization = `Bearer ${manualToken}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 export default api;

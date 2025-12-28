@@ -97,8 +97,8 @@ const ChatPanel = ({
       {/* Input Area */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex items-end gap-3">
-          {/* Audio Record Button (for audio mode) */}
-          {isAudioMode && (
+          {/* Audio Record Button - hidden in live mode since it has its own controls in the left panel */}
+          {isAudioMode && !isRecording && !onStartRecording && (
             <button
               type="button"
               onClick={handleRecordToggle}
