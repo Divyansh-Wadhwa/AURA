@@ -4,7 +4,7 @@ import {
   getProgressTrends,
   getDetailedAnalysis,
 } from '../controllers/feedback.controller.js';
-import { protect } from '../middleware/auth.middleware.js';
+import { protect } from '../middleware/auth0.middleware.js';
 
 const router = Router();
 
