@@ -102,6 +102,9 @@ class VideoMetrics(BaseModel):
     head_motion_variance: Optional[float] = Field(None, ge=0, le=1, description="Variance in head movement")
     facial_engagement_score: Optional[float] = Field(None, ge=0, le=1, description="Facial activity/engagement level")
     video_available: Optional[float] = Field(None, ge=0, le=1, description="Binary flag indicating video was available")
+    
+    class Config:
+        extra = "allow"  # Allow extra fields (body language metrics, total_frames, etc.)
 
 
 class ScoreRequest(BaseModel):
