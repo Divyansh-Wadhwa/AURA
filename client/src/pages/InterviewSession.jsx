@@ -450,6 +450,26 @@ const InterviewSession = () => {
                     isThinking={isSending}
                   />
                   
+                  {/* Camera Preview - Picture in Picture */}
+                  {localStream && (
+                    <div className="absolute bottom-24 right-4 w-40 h-28 rounded-xl overflow-hidden border-2 border-dark-600 shadow-2xl bg-dark-900 z-20">
+                      <video
+                        autoPlay
+                        muted
+                        playsInline
+                        ref={(el) => {
+                          if (el && localStream) {
+                            el.srcObject = localStream;
+                          }
+                        }}
+                        className="w-full h-full object-cover mirror"
+                      />
+                      <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-dark-900/80 text-[10px] text-dark-300">
+                        You
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Video Perception runs in background when enabled */}
                   {isVideoAnalyzing && (
                     <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-900/80 border border-accent-700">
@@ -612,6 +632,13 @@ const InterviewSession = () => {
           </button>
         </div>
       )}
+
+      {/* Mirror style for camera preview */}
+      <style>{`
+        .mirror {
+          transform: scaleX(-1);
+        }
+      `}</style>
     </div>
   );
 };
