@@ -45,14 +45,17 @@ ChartJS.register(
 );
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, accessToken } = useAuth();
   const { sessions, stats, getUserSessions, getUserStats, getProgressTrends } = useSession();
   const { isDarkMode, toggleTheme } = useTheme();
   const [trends, setTrends] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
+  
   useEffect(() => {
+    // Wait for access token before making API calls
+    if (!accessToken) return;
+    
     const loadData = async () => {
       setLoading(true);
       await Promise.all([
@@ -65,7 +68,7 @@ const Dashboard = () => {
       setLoading(false);
     };
     loadData();
-  }, [getUserSessions, getUserStats, getProgressTrends]);
+  }, [accessToken, getUserSessions, getUserStats, getProgressTrends]);
 
   const handleLogout = () => {
     logout();

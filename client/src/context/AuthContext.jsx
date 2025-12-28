@@ -18,12 +18,12 @@ const STORAGE_KEY_USER = 'aura_auth_user';
 const STORAGE_KEY_SYNCED = 'aura_auth_synced';
 
 /**
- * Get cached user from sessionStorage
+ * Get cached user from sessionStorage (checks if synced ID matches)
  */
 const getCachedUser = (auth0Sub) => {
   try {
     const synced = sessionStorage.getItem(STORAGE_KEY_SYNCED);
-    if (synced === auth0Sub) {
+    if (auth0Sub && synced === auth0Sub) {
       const cached = sessionStorage.getItem(STORAGE_KEY_USER);
       return cached ? JSON.parse(cached) : null;
     }
@@ -31,6 +31,18 @@ const getCachedUser = (auth0Sub) => {
     console.error('[Auth] Cache read error:', e);
   }
   return null;
+};
+
+/**
+ * Get any cached user from sessionStorage (for initial state)
+ */
+const getAnyCachedUser = () => {
+  try {
+    const cached = sessionStorage.getItem(STORAGE_KEY_USER);
+    return cached ? JSON.parse(cached) : null;
+  } catch (e) {
+    return null;
+  }
 };
 
 /**
@@ -73,8 +85,10 @@ export const AuthProvider = ({ children }) => {
     error: auth0Error,
   } = useAuth0();
 
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize user from sessionStorage synchronously to prevent redirect flicker
+  const [user, setUser] = useState(() => getAnyCachedUser());
+  // If we have cached user, don't show loading state
+  const [loading, setLoading] = useState(() => !getAnyCachedUser());
   const [error, setError] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [initialized, setInitialized] = useState(false);
