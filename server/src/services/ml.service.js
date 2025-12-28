@@ -160,14 +160,41 @@ export const analyzeSession = async (sessionData) => {
       console.log(`    ${COLORS.dim}No audio data available${COLORS.reset}`);
     }
 
-    // Log video metrics
+    // Log video metrics - separate face/gaze from body language
     console.log(`\n${COLORS.magenta}  ╔═══════════════════════════════════════════════════════════╗${COLORS.reset}`);
     console.log(`${COLORS.magenta}  ║              VIDEO FEATURES (${videoMetrics ? Object.keys(videoMetrics).length : 0} metrics)                   ║${COLORS.reset}`);
     console.log(`${COLORS.magenta}  ╚═══════════════════════════════════════════════════════════╝${COLORS.reset}`);
     if (videoMetrics) {
-      Object.entries(videoMetrics).forEach(([key, value]) => {
-        console.log(`    ${key}: ${typeof value === 'number' ? value.toFixed(4) : value}`);
-      });
+      // Face & Gaze metrics
+      const faceGazeKeys = ['face_presence_ratio', 'eye_contact_ratio', 'facial_engagement_score', 'head_motion_variance', 'video_available', 'total_frames'];
+      const faceGazeMetrics = faceGazeKeys.filter(k => videoMetrics[k] !== undefined);
+      
+      if (faceGazeMetrics.length > 0) {
+        console.log(`\n${COLORS.cyan}  Face & Gaze Metrics:${COLORS.reset}`);
+        faceGazeMetrics.forEach(key => {
+          console.log(`    ${key}: ${typeof videoMetrics[key] === 'number' ? videoMetrics[key].toFixed(4) : videoMetrics[key]}`);
+        });
+      }
+      
+      // Body language metrics
+      const bodyLangKeys = ['body_detected_ratio', 'shoulder_openness', 'gesture_frequency', 'posture_stability', 'forward_lean', 'hand_to_face_ratio', 'arm_cross_ratio', 'gesture_amplitude'];
+      const bodyLangMetrics = bodyLangKeys.filter(k => videoMetrics[k] !== undefined);
+      
+      if (bodyLangMetrics.length > 0) {
+        console.log(`\n${COLORS.cyan}  Body Language Metrics:${COLORS.reset}`);
+        bodyLangMetrics.forEach(key => {
+          console.log(`    ${key}: ${typeof videoMetrics[key] === 'number' ? videoMetrics[key].toFixed(4) : videoMetrics[key]}`);
+        });
+      }
+      
+      // Any other video metrics
+      const otherKeys = Object.keys(videoMetrics).filter(k => !faceGazeKeys.includes(k) && !bodyLangKeys.includes(k));
+      if (otherKeys.length > 0) {
+        console.log(`\n${COLORS.cyan}  Other Video Metrics:${COLORS.reset}`);
+        otherKeys.forEach(key => {
+          console.log(`    ${key}: ${typeof videoMetrics[key] === 'number' ? videoMetrics[key].toFixed(4) : videoMetrics[key]}`);
+        });
+      }
     } else {
       console.log(`    ${COLORS.dim}No video data (text-only mode)${COLORS.reset}`);
     }
