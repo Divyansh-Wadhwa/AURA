@@ -92,25 +92,84 @@ export const analyzeSession = async (sessionData) => {
     }
 
     logSuccess('Perception features extracted successfully');
-    console.log(`\n${COLORS.blue}  Extracted Features (${Object.keys(perceptionResult).length} text metrics):${COLORS.reset}`);
-    Object.entries(perceptionResult).forEach(([key, value]) => {
-      console.log(`    ${COLORS.yellow}${key}:${COLORS.reset} ${typeof value === 'number' ? value.toFixed(4) : value}`);
+    
+    // Separate text metrics into categories
+    const semanticMetrics = ['semantic_relevance_mean', 'semantic_relevance_std', 'topic_drift_ratio', 'information_density', 'specificity_score', 'redundancy_score', 'answer_depth_score'];
+    const linguisticMetrics = ['avg_sentence_length', 'sentence_length_std', 'avg_response_length_sec', 'response_length_consistency'];
+    const confidenceMetrics = ['assertive_phrase_ratio', 'modal_verb_ratio', 'hedge_ratio', 'filler_word_ratio', 'vague_phrase_ratio'];
+    const empathyMetrics = ['empathy_phrase_ratio', 'reflective_response_ratio', 'question_back_ratio'];
+    const sentimentMetrics = ['avg_sentiment', 'sentiment_variance', 'negative_spike_count'];
+    const llmMetrics = ['llm_confidence_mean', 'llm_clarity_mean', 'llm_depth_mean', 'llm_empathy_mean', 'llm_evasion_mean'];
+
+    console.log(`\n${COLORS.blue}  ╔═══════════════════════════════════════════════════════════╗${COLORS.reset}`);
+    console.log(`${COLORS.blue}  ║              TEXT FEATURES (${Object.keys(perceptionResult).length} metrics)                   ║${COLORS.reset}`);
+    console.log(`${COLORS.blue}  ╚═══════════════════════════════════════════════════════════╝${COLORS.reset}`);
+
+    console.log(`\n${COLORS.yellow}  Semantic Metrics:${COLORS.reset}`);
+    semanticMetrics.forEach(key => {
+      if (perceptionResult[key] !== undefined) {
+        console.log(`    ${key}: ${perceptionResult[key].toFixed(4)}`);
+      }
     });
 
-    // Log video metrics in detail
-    if (videoMetrics) {
-      console.log(`\n${COLORS.magenta}  Video Features (${Object.keys(videoMetrics).length} metrics):${COLORS.reset}`);
-      Object.entries(videoMetrics).forEach(([key, value]) => {
-        console.log(`    ${COLORS.cyan}${key}:${COLORS.reset} ${typeof value === 'number' ? value.toFixed(4) : value}`);
-      });
+    console.log(`\n${COLORS.yellow}  Linguistic Metrics:${COLORS.reset}`);
+    linguisticMetrics.forEach(key => {
+      if (perceptionResult[key] !== undefined) {
+        console.log(`    ${key}: ${perceptionResult[key].toFixed(4)}`);
+      }
+    });
+
+    console.log(`\n${COLORS.yellow}  Confidence Metrics:${COLORS.reset}`);
+    confidenceMetrics.forEach(key => {
+      if (perceptionResult[key] !== undefined) {
+        console.log(`    ${key}: ${perceptionResult[key].toFixed(4)}`);
+      }
+    });
+
+    console.log(`\n${COLORS.yellow}  Empathy Metrics:${COLORS.reset}`);
+    empathyMetrics.forEach(key => {
+      if (perceptionResult[key] !== undefined) {
+        console.log(`    ${key}: ${perceptionResult[key].toFixed(4)}`);
+      }
+    });
+
+    console.log(`\n${COLORS.yellow}  Sentiment Metrics:${COLORS.reset}`);
+    sentimentMetrics.forEach(key => {
+      if (perceptionResult[key] !== undefined) {
+        console.log(`    ${key}: ${perceptionResult[key].toFixed(4)}`);
+      }
+    });
+
+    console.log(`\n${COLORS.yellow}  LLM Analysis Metrics:${COLORS.reset}`);
+    llmMetrics.forEach(key => {
+      if (perceptionResult[key] !== undefined) {
+        console.log(`    ${key}: ${perceptionResult[key].toFixed(4)}`);
+      }
+    });
+
+    // Log audio metrics
+    console.log(`\n${COLORS.green}  ╔═══════════════════════════════════════════════════════════╗${COLORS.reset}`);
+    console.log(`${COLORS.green}  ║              AUDIO FEATURES                               ║${COLORS.reset}`);
+    console.log(`${COLORS.green}  ╚═══════════════════════════════════════════════════════════╝${COLORS.reset}`);
+    if (audioRefs && audioRefs.length > 0) {
+      const totalDuration = audioRefs.reduce((sum, ref) => sum + (ref.duration || 0), 0);
+      console.log(`    audio_segments: ${audioRefs.length}`);
+      console.log(`    total_audio_duration: ${totalDuration.toFixed(2)}s`);
+      console.log(`    avg_segment_duration: ${(totalDuration / audioRefs.length).toFixed(2)}s`);
+    } else {
+      console.log(`    ${COLORS.dim}No audio data available${COLORS.reset}`);
     }
 
-    // Log audio metrics if available
-    if (audioRefs && audioRefs.length > 0) {
-      console.log(`\n${COLORS.green}  Audio Features:${COLORS.reset}`);
-      console.log(`    ${COLORS.cyan}audio_segments:${COLORS.reset} ${audioRefs.length}`);
-      const totalDuration = audioRefs.reduce((sum, ref) => sum + (ref.duration || 0), 0);
-      console.log(`    ${COLORS.cyan}total_audio_duration:${COLORS.reset} ${totalDuration.toFixed(2)}s`);
+    // Log video metrics
+    console.log(`\n${COLORS.magenta}  ╔═══════════════════════════════════════════════════════════╗${COLORS.reset}`);
+    console.log(`${COLORS.magenta}  ║              VIDEO FEATURES (${videoMetrics ? Object.keys(videoMetrics).length : 0} metrics)                   ║${COLORS.reset}`);
+    console.log(`${COLORS.magenta}  ╚═══════════════════════════════════════════════════════════╝${COLORS.reset}`);
+    if (videoMetrics) {
+      Object.entries(videoMetrics).forEach(([key, value]) => {
+        console.log(`    ${key}: ${typeof value === 'number' ? value.toFixed(4) : value}`);
+      });
+    } else {
+      console.log(`    ${COLORS.dim}No video data (text-only mode)${COLORS.reset}`);
     }
 
     // Step 3: Call Decision Layer to score features (include video metrics)

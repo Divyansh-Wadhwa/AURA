@@ -2,9 +2,9 @@
  * Auth Context - Minimal Auth0 Wrapper
  * Just wraps Auth0 hooks and provides user/auth state
  */
-import { createContext, useContext, useCallback, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import api from '../services/api';
+import { setTokenGetter } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -27,24 +27,20 @@ export const AuthProvider = ({ children }) => {
   } = useAuth0();
 
   const [accessToken, setAccessToken] = useState(null);
-  const tokenFetchedRef = useRef(false);
 
-  // Get token when authenticated
+  // Set up token getter for API interceptor
   useEffect(() => {
-    if (isAuthenticated && !isLoading && !tokenFetchedRef.current) {
-      tokenFetchedRef.current = true;
+    if (isAuthenticated && !isLoading) {
+      // Set the token getter so API can get fresh tokens
+      setTokenGetter(() => getAccessTokenSilently());
+      
+      // Also get initial token for state
       getAccessTokenSilently()
-        .then(token => {
-          setAccessToken(token);
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        })
+        .then(token => setAccessToken(token))
         .catch(err => console.error('Token error:', err));
-    }
-    
-    if (!isAuthenticated && !isLoading) {
-      tokenFetchedRef.current = false;
+    } else if (!isAuthenticated && !isLoading) {
+      setTokenGetter(null);
       setAccessToken(null);
-      delete api.defaults.headers.common['Authorization'];
     }
   }, [isAuthenticated, isLoading, getAccessTokenSilently]);
 
@@ -53,9 +49,8 @@ export const AuthProvider = ({ children }) => {
   }, [loginWithRedirect]);
 
   const logout = useCallback(() => {
-    tokenFetchedRef.current = false;
+    setTokenGetter(null);
     setAccessToken(null);
-    delete api.defaults.headers.common['Authorization'];
     auth0Logout({ logoutParams: { returnTo: window.location.origin } });
   }, [auth0Logout]);
 

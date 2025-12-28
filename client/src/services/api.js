@@ -1,6 +1,5 @@
 /**
- * API Service - Simple axios instance
- * Token is set by AuthContext after Auth0 login
+ * API Service - Axios instance with Auth0 token injection
  */
 import axios from 'axios';
 
@@ -13,5 +12,30 @@ const api = axios.create({
   },
   timeout: 30000,
 });
+
+// Store for token getter function (set by AuthContext)
+let tokenGetter = null;
+
+export const setTokenGetter = (getter) => {
+  tokenGetter = getter;
+};
+
+// Request interceptor - get fresh token for each request
+api.interceptors.request.use(
+  async (config) => {
+    if (tokenGetter) {
+      try {
+        const token = await tokenGetter();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (err) {
+        console.error('[API] Token error:', err);
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default api;
