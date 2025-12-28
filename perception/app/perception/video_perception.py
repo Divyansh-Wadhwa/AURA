@@ -44,6 +44,16 @@ class VideoMetrics:
     neutral_face_ratio: float = 0.0
     emotion_mismatch_score: float = 0.0
     
+    # Body language metrics
+    body_detected_ratio: float = 0.0       # Ratio of frames with body detected
+    shoulder_openness: float = 0.0          # 0=closed/hunched, 1=open posture
+    gesture_frequency: float = 0.0          # Hand movements per second
+    posture_stability: float = 0.0          # 1=stable, 0=fidgety
+    forward_lean: float = 0.0               # Positive=leaning forward (engaged)
+    hand_to_face_ratio: float = 0.0         # Ratio of time hands near face
+    arm_cross_ratio: float = 0.0            # Ratio of time arms crossed
+    gesture_amplitude: float = 0.0          # Average gesture size
+    
     def to_dict(self) -> Dict[str, Any]:
         return {
             "eye_contact_ratio": self.eye_contact_ratio,
@@ -52,7 +62,15 @@ class VideoMetrics:
             "expression_variance": self.expression_variance,
             "smile_ratio": self.smile_ratio,
             "neutral_face_ratio": self.neutral_face_ratio,
-            "emotion_mismatch_score": self.emotion_mismatch_score
+            "emotion_mismatch_score": self.emotion_mismatch_score,
+            "body_detected_ratio": self.body_detected_ratio,
+            "shoulder_openness": self.shoulder_openness,
+            "gesture_frequency": self.gesture_frequency,
+            "posture_stability": self.posture_stability,
+            "forward_lean": self.forward_lean,
+            "hand_to_face_ratio": self.hand_to_face_ratio,
+            "arm_cross_ratio": self.arm_cross_ratio,
+            "gesture_amplitude": self.gesture_amplitude
         }
 
 
@@ -69,10 +87,23 @@ class VideoPerception:
     # Expression labels
     EXPRESSION_LABELS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
     
+    # MediaPipe Pose landmark indices
+    POSE_NOSE = 0
+    POSE_LEFT_SHOULDER = 11
+    POSE_RIGHT_SHOULDER = 12
+    POSE_LEFT_ELBOW = 13
+    POSE_RIGHT_ELBOW = 14
+    POSE_LEFT_WRIST = 15
+    POSE_RIGHT_WRIST = 16
+    POSE_LEFT_HIP = 23
+    POSE_RIGHT_HIP = 24
+    
     def __init__(self):
         # Initialize MediaPipe Face Mesh if available
         self.mp_face_mesh = None
         self.face_mesh = None
+        self.mp_pose = None
+        self.pose = None
         
         if MP_AVAILABLE and mp is not None:
             try:
@@ -84,6 +115,15 @@ class VideoPerception:
                     min_tracking_confidence=0.5
                 )
                 logger.info("MediaPipe Face Mesh initialized successfully")
+                
+                # Initialize MediaPipe Pose for body language detection
+                self.mp_pose = mp.solutions.pose
+                self.pose = self.mp_pose.Pose(
+                    min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5,
+                    model_complexity=1  # 0=lite, 1=full, 2=heavy
+                )
+                logger.info("MediaPipe Pose initialized successfully")
             except Exception as e:
                 logger.warning(f"MediaPipe initialization failed: {e}")
         
@@ -144,6 +184,7 @@ class VideoPerception:
             self._aggregate_gaze_metrics(metrics, frame_data)
             self._aggregate_expression_metrics(metrics, frame_data)
             self._calculate_head_turn_frequency(metrics, frame_data, fps)
+            self._aggregate_body_language_metrics(metrics, frame_data, fps)
             
         except Exception as e:
             logger.error(f"Video processing error: {e}")
@@ -177,6 +218,7 @@ class VideoPerception:
                 self._aggregate_gaze_metrics(metrics, frame_data)
                 self._aggregate_expression_metrics(metrics, frame_data)
                 self._calculate_head_turn_frequency(metrics, frame_data, fps)
+                self._aggregate_body_language_metrics(metrics, frame_data, fps)
                 
         except Exception as e:
             logger.error(f"Frame processing error: {e}")
@@ -207,6 +249,7 @@ class VideoPerception:
             if frame_data:
                 self._aggregate_gaze_metrics(metrics, frame_data)
                 self._aggregate_expression_metrics(metrics, frame_data)
+                self._aggregate_body_language_metrics(metrics, frame_data, fps=1.0)
                 
         except Exception as e:
             logger.error(f"Image processing error: {e}")
@@ -243,7 +286,7 @@ class VideoPerception:
         return frames
     
     def _process_frames(self, frames: List[np.ndarray]) -> List[Dict[str, Any]]:
-        """Process frames and extract per-frame features."""
+        """Process frames and extract per-frame features including body language."""
         frame_data = []
         
         for frame in frames:
@@ -252,36 +295,102 @@ class VideoPerception:
                 'eye_contact': False,
                 'head_pose': None,
                 'gaze_direction': None,
-                'expressions': None
+                'expressions': None,
+                # Body language data
+                'has_body': False,
+                'pose_landmarks': None,
+                'shoulder_width': None,
+                'wrist_positions': None,
+                'shoulder_center': None,
+                'nose_position': None,
+                'hip_center': None,
+                'elbow_positions': None
             }
             
             # Convert BGR to RGB for MediaPipe
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w = frame.shape[:2]
             
             # Process with Face Mesh
-            results = self.face_mesh.process(rgb_frame)
-            
-            if results.multi_face_landmarks:
-                face_landmarks = results.multi_face_landmarks[0]
-                data['has_face'] = True
+            if self.face_mesh is not None:
+                results = self.face_mesh.process(rgb_frame)
                 
-                # Extract head pose
-                data['head_pose'] = self._estimate_head_pose(
-                    face_landmarks, frame.shape
-                )
-                
-                # Estimate gaze direction
-                data['gaze_direction'] = self._estimate_gaze(
-                    face_landmarks, frame.shape
-                )
-                
-                # Determine eye contact
-                if data['head_pose'] is not None:
-                    yaw, pitch, roll = data['head_pose']
-                    data['eye_contact'] = (
-                        abs(yaw) < self.YAW_THRESHOLD and
-                        abs(pitch) < self.PITCH_THRESHOLD
+                if results.multi_face_landmarks:
+                    face_landmarks = results.multi_face_landmarks[0]
+                    data['has_face'] = True
+                    
+                    # Extract head pose
+                    data['head_pose'] = self._estimate_head_pose(
+                        face_landmarks, frame.shape
                     )
+                    
+                    # Estimate gaze direction
+                    data['gaze_direction'] = self._estimate_gaze(
+                        face_landmarks, frame.shape
+                    )
+                    
+                    # Determine eye contact
+                    if data['head_pose'] is not None:
+                        yaw, pitch, roll = data['head_pose']
+                        data['eye_contact'] = (
+                            abs(yaw) < self.YAW_THRESHOLD and
+                            abs(pitch) < self.PITCH_THRESHOLD
+                        )
+            
+            # Process with Pose detection for body language
+            if self.pose is not None:
+                try:
+                    pose_results = self.pose.process(rgb_frame)
+                    
+                    if pose_results.pose_landmarks:
+                        landmarks = pose_results.pose_landmarks.landmark
+                        data['has_body'] = True
+                        data['pose_landmarks'] = landmarks
+                        
+                        # Extract key body positions (normalized to image size)
+                        left_shoulder = landmarks[self.POSE_LEFT_SHOULDER]
+                        right_shoulder = landmarks[self.POSE_RIGHT_SHOULDER]
+                        left_wrist = landmarks[self.POSE_LEFT_WRIST]
+                        right_wrist = landmarks[self.POSE_RIGHT_WRIST]
+                        left_elbow = landmarks[self.POSE_LEFT_ELBOW]
+                        right_elbow = landmarks[self.POSE_RIGHT_ELBOW]
+                        nose = landmarks[self.POSE_NOSE]
+                        left_hip = landmarks[self.POSE_LEFT_HIP]
+                        right_hip = landmarks[self.POSE_RIGHT_HIP]
+                        
+                        # Calculate shoulder width (for openness metric)
+                        data['shoulder_width'] = abs(right_shoulder.x - left_shoulder.x)
+                        
+                        # Shoulder center position
+                        data['shoulder_center'] = (
+                            (left_shoulder.x + right_shoulder.x) / 2,
+                            (left_shoulder.y + right_shoulder.y) / 2,
+                            (left_shoulder.z + right_shoulder.z) / 2
+                        )
+                        
+                        # Wrist positions for gesture tracking
+                        data['wrist_positions'] = (
+                            (left_wrist.x * w, left_wrist.y * h),
+                            (right_wrist.x * w, right_wrist.y * h)
+                        )
+                        
+                        # Elbow positions for arm cross detection
+                        data['elbow_positions'] = (
+                            (left_elbow.x, left_elbow.y),
+                            (right_elbow.x, right_elbow.y)
+                        )
+                        
+                        # Nose position for forward lean calculation
+                        data['nose_position'] = (nose.x, nose.y, nose.z)
+                        
+                        # Hip center for posture reference
+                        data['hip_center'] = (
+                            (left_hip.x + right_hip.x) / 2,
+                            (left_hip.y + right_hip.y) / 2
+                        )
+                        
+                except Exception as e:
+                    logger.debug(f"Pose detection failed for frame: {e}")
             
             # Extract expressions using FER
             if self.fer_detector is not None:
@@ -528,7 +637,132 @@ class VideoPerception:
         if duration > 0:
             metrics.head_turn_frequency = float(turn_count / duration)
     
+    def _aggregate_body_language_metrics(
+        self,
+        metrics: VideoMetrics,
+        frame_data: List[Dict[str, Any]],
+        fps: float
+    ):
+        """Aggregate body language metrics from pose data."""
+        frames_with_body = [f for f in frame_data if f['has_body']]
+        
+        if not frames_with_body:
+            return
+        
+        # Body detection ratio
+        metrics.body_detected_ratio = len(frames_with_body) / len(frame_data)
+        
+        # 1. Shoulder Openness (wider shoulders = more open/confident posture)
+        shoulder_widths = [f['shoulder_width'] for f in frames_with_body if f['shoulder_width'] is not None]
+        if shoulder_widths:
+            # Normalize: typical shoulder width in normalized coords is 0.2-0.4
+            avg_width = np.mean(shoulder_widths)
+            # Map to 0-1 range (0.15 = very closed, 0.45 = very open)
+            metrics.shoulder_openness = float(np.clip((avg_width - 0.15) / 0.30, 0, 1))
+        
+        # 2. Gesture Frequency (hand movements per second)
+        wrist_positions = [f['wrist_positions'] for f in frames_with_body if f['wrist_positions'] is not None]
+        if len(wrist_positions) >= 2:
+            movement_count = 0
+            movement_threshold = 20  # pixels
+            
+            for i in range(1, len(wrist_positions)):
+                prev_left, prev_right = wrist_positions[i-1]
+                curr_left, curr_right = wrist_positions[i]
+                
+                # Calculate movement distance for each hand
+                left_dist = np.sqrt((curr_left[0] - prev_left[0])**2 + (curr_left[1] - prev_left[1])**2)
+                right_dist = np.sqrt((curr_right[0] - prev_right[0])**2 + (curr_right[1] - prev_right[1])**2)
+                
+                # Count as gesture if either hand moved significantly
+                if left_dist > movement_threshold or right_dist > movement_threshold:
+                    movement_count += 1
+            
+            duration = len(frame_data) / fps
+            if duration > 0:
+                metrics.gesture_frequency = float(movement_count / duration)
+        
+        # 3. Gesture Amplitude (average movement size)
+        if len(wrist_positions) >= 2:
+            all_movements = []
+            for i in range(1, len(wrist_positions)):
+                prev_left, prev_right = wrist_positions[i-1]
+                curr_left, curr_right = wrist_positions[i]
+                
+                left_dist = np.sqrt((curr_left[0] - prev_left[0])**2 + (curr_left[1] - prev_left[1])**2)
+                right_dist = np.sqrt((curr_right[0] - prev_right[0])**2 + (curr_right[1] - prev_right[1])**2)
+                all_movements.extend([left_dist, right_dist])
+            
+            if all_movements:
+                # Normalize to 0-1 (0-100 pixels mapped)
+                metrics.gesture_amplitude = float(np.clip(np.mean(all_movements) / 100, 0, 1))
+        
+        # 4. Posture Stability (low variance = stable, high = fidgety)
+        shoulder_centers = [f['shoulder_center'] for f in frames_with_body if f['shoulder_center'] is not None]
+        if len(shoulder_centers) >= 2:
+            x_positions = [sc[0] for sc in shoulder_centers]
+            y_positions = [sc[1] for sc in shoulder_centers]
+            
+            # Calculate position variance
+            position_variance = np.var(x_positions) + np.var(y_positions)
+            
+            # Invert: low variance = high stability (1), high variance = low stability (0)
+            # Typical variance range: 0 to 0.01
+            metrics.posture_stability = float(np.clip(1 - (position_variance * 100), 0, 1))
+        
+        # 5. Forward Lean (nose position relative to shoulders indicates engagement)
+        forward_leans = []
+        for f in frames_with_body:
+            if f['nose_position'] is not None and f['shoulder_center'] is not None:
+                nose_z = f['nose_position'][2]
+                shoulder_z = f['shoulder_center'][2]
+                # Positive = leaning forward (nose closer to camera than shoulders)
+                lean = shoulder_z - nose_z
+                forward_leans.append(lean)
+        
+        if forward_leans:
+            # Normalize: typical range -0.1 to 0.1
+            avg_lean = np.mean(forward_leans)
+            metrics.forward_lean = float(np.clip(avg_lean * 5, -1, 1))
+        
+        # 6. Hand to Face Ratio (hands near face = nervousness indicator)
+        hand_to_face_frames = 0
+        for f in frames_with_body:
+            if f['wrist_positions'] is not None and f['nose_position'] is not None:
+                left_wrist, right_wrist = f['wrist_positions']
+                nose_y = f['nose_position'][1]
+                
+                # Check if either hand is at face level (wrist y close to nose y)
+                # In normalized coords, nose_y is typically 0.3-0.5
+                left_near_face = abs(left_wrist[1] / 480 - nose_y) < 0.15  # Assuming ~480px height
+                right_near_face = abs(right_wrist[1] / 480 - nose_y) < 0.15
+                
+                if left_near_face or right_near_face:
+                    hand_to_face_frames += 1
+        
+        if frames_with_body:
+            metrics.hand_to_face_ratio = float(hand_to_face_frames / len(frames_with_body))
+        
+        # 7. Arm Cross Ratio (elbows crossed in front = defensive posture)
+        arm_cross_frames = 0
+        for f in frames_with_body:
+            if f['elbow_positions'] is not None and f['shoulder_center'] is not None:
+                left_elbow, right_elbow = f['elbow_positions']
+                shoulder_center_x = f['shoulder_center'][0]
+                
+                # Arms crossed when elbows are on opposite sides of center
+                left_crossed = left_elbow[0] > shoulder_center_x
+                right_crossed = right_elbow[0] < shoulder_center_x
+                
+                if left_crossed and right_crossed:
+                    arm_cross_frames += 1
+        
+        if frames_with_body:
+            metrics.arm_cross_ratio = float(arm_cross_frames / len(frames_with_body))
+    
     def close(self):
         """Release resources."""
         if self.face_mesh:
             self.face_mesh.close()
+        if self.pose:
+            self.pose.close()
