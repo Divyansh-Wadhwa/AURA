@@ -36,6 +36,148 @@ const calculateVariance = (values) => {
 const clamp = (val) => Math.max(0, Math.min(1, val));
 
 /**
+ * Detect multiple faces/people in frame by analyzing skin regions
+ * Returns count of distinct skin-tone clusters
+ */
+const detectMultiplePeople = (imageData, width, height) => {
+  const data = imageData.data;
+  
+  // Divide frame into a grid and detect skin presence in each cell
+  const gridCols = 5;
+  const gridRows = 4;
+  const cellWidth = Math.floor(width / gridCols);
+  const cellHeight = Math.floor(height / gridRows);
+  
+  const skinCells = [];
+  
+  for (let row = 0; row < gridRows; row++) {
+    for (let col = 0; col < gridCols; col++) {
+      const startX = col * cellWidth;
+      const startY = row * cellHeight;
+      const endX = startX + cellWidth;
+      const endY = startY + cellHeight;
+      
+      let skinPixels = 0;
+      let totalPixels = 0;
+      
+      for (let y = startY; y < endY; y += 3) {
+        for (let x = startX; x < endX; x += 3) {
+          const idx = (y * width + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          
+          // Skin tone detection
+          const isSkinTone = 
+            r > 60 && g > 40 && b > 20 &&
+            r > g && r > b &&
+            Math.abs(r - g) > 15 &&
+            r - b > 15;
+          
+          if (isSkinTone) skinPixels++;
+          totalPixels++;
+        }
+      }
+      
+      const skinRatio = totalPixels > 0 ? skinPixels / totalPixels : 0;
+      if (skinRatio > 0.2) {
+        skinCells.push({ row, col, skinRatio });
+      }
+    }
+  }
+  
+  // Group adjacent skin cells into clusters (people)
+  const visited = new Set();
+  let peopleCount = 0;
+  
+  const dfs = (row, col) => {
+    const key = `${row},${col}`;
+    if (visited.has(key)) return;
+    if (!skinCells.find(c => c.row === row && c.col === col)) return;
+    
+    visited.add(key);
+    
+    // Check adjacent cells
+    dfs(row - 1, col);
+    dfs(row + 1, col);
+    dfs(row, col - 1);
+    dfs(row, col + 1);
+  };
+  
+  for (const cell of skinCells) {
+    const key = `${cell.row},${cell.col}`;
+    if (!visited.has(key)) {
+      dfs(cell.row, cell.col);
+      peopleCount++;
+    }
+  }
+  
+  return peopleCount;
+};
+
+/**
+ * Analyze background complexity
+ * Returns a score 0-1 where lower = plainer background
+ */
+const analyzeBackgroundComplexity = (imageData, width, height) => {
+  const data = imageData.data;
+  
+  // Sample edges of frame (where background typically is)
+  const regions = [
+    { startX: 0, endX: Math.floor(width * 0.15), startY: 0, endY: height }, // Left edge
+    { startX: Math.floor(width * 0.85), endX: width, startY: 0, endY: height }, // Right edge
+    { startX: 0, endX: width, startY: 0, endY: Math.floor(height * 0.15) }, // Top edge
+  ];
+  
+  let colorVariance = 0;
+  let edgeCount = 0;
+  let totalSamples = 0;
+  
+  for (const region of regions) {
+    const colors = [];
+    let prevR = 0, prevG = 0, prevB = 0;
+    
+    for (let y = region.startY; y < region.endY; y += 4) {
+      for (let x = region.startX; x < region.endX; x += 4) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        
+        colors.push({ r, g, b });
+        
+        // Detect edges (sudden color changes)
+        const colorDiff = Math.abs(r - prevR) + Math.abs(g - prevG) + Math.abs(b - prevB);
+        if (colorDiff > 50) edgeCount++;
+        
+        prevR = r; prevG = g; prevB = b;
+        totalSamples++;
+      }
+    }
+    
+    // Calculate color variance for this region
+    if (colors.length > 0) {
+      const avgR = colors.reduce((a, c) => a + c.r, 0) / colors.length;
+      const avgG = colors.reduce((a, c) => a + c.g, 0) / colors.length;
+      const avgB = colors.reduce((a, c) => a + c.b, 0) / colors.length;
+      
+      const variance = colors.reduce((acc, c) => {
+        return acc + Math.pow(c.r - avgR, 2) + Math.pow(c.g - avgG, 2) + Math.pow(c.b - avgB, 2);
+      }, 0) / colors.length;
+      
+      colorVariance += variance;
+    }
+  }
+  
+  // Normalize scores
+  const normalizedVariance = Math.min(colorVariance / 10000, 1);
+  const edgeRatio = totalSamples > 0 ? edgeCount / totalSamples : 0;
+  
+  // Combine into complexity score (0 = plain, 1 = complex)
+  return clamp(normalizedVariance * 0.6 + edgeRatio * 0.4);
+};
+
+/**
  * Simple face detection using canvas pixel analysis
  * Looks for skin-tone colors in the center region of the frame
  */
@@ -286,6 +428,16 @@ export const useVideoPerception = (options = {}) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState(null);
   const [currentMetrics, setCurrentMetrics] = useState(null);
+  
+  // Environment check state (multiple people, background)
+  const [environmentCheck, setEnvironmentCheck] = useState({
+    checked: false,
+    peopleCount: 0,
+    multiplePeople: false,
+    backgroundComplexity: 0,
+    complexBackground: false,
+    isValid: true
+  });
 
   // Refs
   const canvasRef = useRef(null);
@@ -564,18 +716,87 @@ export const useVideoPerception = (options = {}) => {
     };
   }, []);
 
+  // Check environment for multiple people and background complexity
+  const checkEnvironment = useCallback(async (videoElement) => {
+    if (!videoElement || videoElement.paused) {
+      return { checked: false, isValid: true };
+    }
+
+    // Initialize if needed
+    if (!isInitialized) {
+      const success = await initialize();
+      if (!success) return { checked: false, isValid: true };
+    }
+
+    try {
+      const canvas = canvasRef.current;
+      const ctx = ctxRef.current;
+      
+      // Use higher resolution for environment check
+      const scale = 0.4;
+      const width = Math.floor((videoElement.videoWidth || 640) * scale);
+      const height = Math.floor((videoElement.videoHeight || 480) * scale);
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(videoElement, 0, 0, width, height);
+      
+      const imageData = ctx.getImageData(0, 0, width, height);
+      
+      // Detect number of people
+      const peopleCount = detectMultiplePeople(imageData, width, height);
+      const multiplePeople = peopleCount > 1;
+      
+      // Analyze background
+      const backgroundComplexity = analyzeBackgroundComplexity(imageData, width, height);
+      const complexBackground = backgroundComplexity > 0.5;
+      
+      const result = {
+        checked: true,
+        peopleCount,
+        multiplePeople,
+        backgroundComplexity: Math.round(backgroundComplexity * 100) / 100,
+        complexBackground,
+        isValid: !multiplePeople // Only block on multiple people
+      };
+      
+      setEnvironmentCheck(result);
+      console.log('[VideoPerception] Environment check:', result);
+      
+      return result;
+    } catch (err) {
+      console.error('[VideoPerception] Environment check error:', err);
+      return { checked: false, isValid: true };
+    }
+  }, [isInitialized, initialize]);
+
+  // Reset environment check
+  const resetEnvironmentCheck = useCallback(() => {
+    setEnvironmentCheck({
+      checked: false,
+      peopleCount: 0,
+      multiplePeople: false,
+      backgroundComplexity: 0,
+      complexBackground: false,
+      isValid: true
+    });
+  }, []);
+
   return {
     // State
     isAnalyzing,
     isInitialized,
     error,
     currentMetrics,
+    environmentCheck,
     
     // Methods
     initialize,
     startAnalysis,
     stopAnalysis,
     getMetrics,
+    checkEnvironment,
+    resetEnvironmentCheck,
     
     // Config
     frameRate: FRAME_RATE

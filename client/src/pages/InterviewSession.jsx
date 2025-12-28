@@ -20,6 +20,9 @@ import {
   AlertCircle,
   Loader2,
   Eye,
+  Users,
+  X,
+  ImageOff,
 } from 'lucide-react';
 import { INTERACTION_MODES } from '../utils/constants';
 
@@ -60,13 +63,20 @@ const InterviewSession = () => {
   // Video perception state
   const [videoMetrics, setVideoMetrics] = useState(null);
 
+  // Environment check state for multi-person detection
+  const [showEnvironmentWarning, setShowEnvironmentWarning] = useState(false);
+  const [environmentIssues, setEnvironmentIssues] = useState({ multiplePeople: false, complexBackground: false });
+
   // Video perception hook
   const { 
     startAnalysis: startVideoPerception, 
     stopAnalysis: stopVideoPerception,
     currentMetrics: liveVideoMetrics,
     isAnalyzing: isVideoAnalyzing,
-    error: videoPerceptionError 
+    error: videoPerceptionError,
+    checkEnvironment,
+    resetEnvironmentCheck,
+    environmentCheck
   } = useVideoPerception({
     enabled: videoModeEnabled,
     onMetricsUpdate: (metrics) => {
@@ -383,6 +393,8 @@ const InterviewSession = () => {
         }
         setVideoModeEnabled(false);
         setIsVideoEnabled(false);
+        setShowEnvironmentWarning(false);
+        resetEnvironmentCheck();
       } else {
         // Enable video
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -392,6 +404,34 @@ const InterviewSession = () => {
         setLocalStream(stream);
         setVideoModeEnabled(true);
         setIsVideoEnabled(true);
+        
+        // Create a temporary video element to check environment
+        const tempVideo = document.createElement('video');
+        tempVideo.srcObject = stream;
+        tempVideo.muted = true;
+        tempVideo.playsInline = true;
+        
+        // Wait for video to be ready then check environment
+        tempVideo.onloadedmetadata = async () => {
+          await tempVideo.play();
+          
+          // Wait a moment for the video to stabilize
+          setTimeout(async () => {
+            const envResult = await checkEnvironment(tempVideo);
+            
+            if (envResult.multiplePeople || envResult.complexBackground) {
+              setEnvironmentIssues({
+                multiplePeople: envResult.multiplePeople,
+                complexBackground: envResult.complexBackground,
+                peopleCount: envResult.peopleCount
+              });
+              setShowEnvironmentWarning(true);
+            }
+            
+            tempVideo.pause();
+            tempVideo.srcObject = null;
+          }, 500);
+        };
         
         // Initialize WebRTC
         if (!webrtcRef.current) {
@@ -403,6 +443,23 @@ const InterviewSession = () => {
       console.error('Failed to toggle video:', err);
       setError('Failed to enable video. Please check camera permissions.');
     }
+  };
+
+  // Handle dismissing environment warning
+  const dismissEnvironmentWarning = () => {
+    setShowEnvironmentWarning(false);
+  };
+
+  // Handle disabling video due to environment issues
+  const disableVideoForEnvironment = () => {
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => track.stop());
+    }
+    setLocalStream(null);
+    setVideoModeEnabled(false);
+    setIsVideoEnabled(false);
+    setShowEnvironmentWarning(false);
+    resetEnvironmentCheck();
   };
 
   if (!currentSession) {
@@ -620,6 +677,77 @@ const InterviewSession = () => {
       />
 
       {/* Error Toast */}
+      {/* Environment Warning Modal */}
+      {showEnvironmentWarning && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-dark-800 border border-dark-600 rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  {environmentIssues.multiplePeople ? (
+                    <Users className="w-6 h-6 text-yellow-400" />
+                  ) : (
+                    <ImageOff className="w-6 h-6 text-yellow-400" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Environment Check</h3>
+                  <p className="text-sm text-dark-400">We noticed some issues</p>
+                </div>
+              </div>
+              <button
+                onClick={dismissEnvironmentWarning}
+                className="text-dark-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              {environmentIssues.multiplePeople && (
+                <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <Users className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-yellow-300 font-medium">Multiple people detected</p>
+                    <p className="text-sm text-dark-300">
+                      We detected {environmentIssues.peopleCount || 'multiple'} people in frame. 
+                      For best results, please ensure only you are visible.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {environmentIssues.complexBackground && (
+                <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <ImageOff className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-blue-300 font-medium">Busy background</p>
+                    <p className="text-sm text-dark-300">
+                      A plain background helps the AI focus on you better.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={dismissEnvironmentWarning}
+                className="flex-1 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Continue Anyway
+              </button>
+              <button
+                onClick={disableVideoForEnvironment}
+                className="flex-1 px-4 py-2.5 border border-dark-500 hover:bg-dark-700 text-dark-200 rounded-lg font-medium transition-colors"
+              >
+                Disable Video
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="fixed bottom-4 right-4 bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg flex items-center gap-2 max-w-md z-50">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
