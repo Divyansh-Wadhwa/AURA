@@ -7,22 +7,15 @@
  * 3. User authenticates (email/password, social, etc.)
  * 4. Auth0 redirects back to app with tokens
  * 5. AuthContext syncs user with backend
+ * 
+ * Note: Redirect logic is handled by PublicRoute wrapper in App.jsx
  */
-import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Sparkles, Loader2, Shield, Zap, Users } from 'lucide-react';
 
 const Login = () => {
-  const { login, isAuthenticated, loading, error } = useAuth();
-  const navigate = useNavigate();
-
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, navigate]);
+  const { login, loading, error } = useAuth();
 
   const handleLogin = async () => {
     await login();

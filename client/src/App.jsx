@@ -8,36 +8,37 @@ import InterviewSession from './pages/InterviewSession';
 import Feedback from './pages/Feedback';
 import NotFound from './pages/NotFound';
 
+// Loading spinner component
+const LoadingSpinner = () => (
+  <div className="min-h-screen flex items-center justify-center bg-dark-950">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+  </div>
+);
+
+// Protected route - requires Auth0 authentication
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
   return children;
 };
 
+// Public route - redirects to dashboard if already authenticated
 const PublicRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
-  if (user) {
+  if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
