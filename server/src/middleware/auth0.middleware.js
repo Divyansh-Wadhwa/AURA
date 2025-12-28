@@ -1,16 +1,11 @@
 /**
- * Auth0 JWT Middleware
+ * Auth Middleware - Supports both Auth0 and Manual JWT
  * 
- * Validates JWT tokens issued by Auth0 using RS256 algorithm.
- * Rejects unauthenticated requests to protected routes.
- * 
- * Flow:
- * 1. Extract Bearer token from Authorization header
- * 2. Validate token signature using Auth0's public key (JWKS)
- * 3. Verify issuer, audience, and expiration
- * 4. Attach decoded payload to req.auth
+ * Auth0: RS256 validation via JWKS
+ * Manual: HS256 validation with local secret
  */
 import { auth } from 'express-oauth2-jwt-bearer';
+import jwt from 'jsonwebtoken';
 import config from '../config/env.js';
 import User from '../models/User.model.js';
 import logger from '../utils/logger.js';
@@ -78,10 +73,45 @@ export const loadUser = async (req, res, next) => {
 };
 
 /**
- * Combined middleware: JWT validation + user loading
+ * Combined middleware: Tries manual JWT first, falls back to Auth0
  * Use this for protected routes
  */
-export const protect = [checkJwt, loadUser];
+export const protect = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'No token provided',
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+  
+  // Try manual JWT first (faster, no network call)
+  try {
+    const decoded = jwt.verify(token, config.jwtSecret);
+    const user = await User.findById(decoded.id);
+    if (user) {
+      req.user = user;
+      return next();
+    }
+  } catch (manualError) {
+    // Not a manual JWT, try Auth0
+  }
+
+  // Try Auth0 validation
+  jwtCheck(req, res, async (err) => {
+    if (err) {
+      logger.error(`[Auth] JWT validation failed: ${err.message}`);
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication failed',
+      });
+    }
+    await loadUser(req, res, next);
+  });
+};
 
 /**
  * Optional auth middleware
