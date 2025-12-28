@@ -11,6 +11,7 @@
  * - Eye contact approximation (face centered in frame)
  * - Head motion variance (frame-to-frame pixel changes)
  * - Facial engagement score (motion in face region)
+ * - Body language metrics (gesture frequency, posture, shoulder openness)
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -150,6 +151,131 @@ const calculateMotion = (currentData, prevData, width, height) => {
 };
 
 /**
+ * Detect body presence and estimate shoulder openness
+ * Analyzes the middle-lower region of the frame for body presence
+ */
+const detectBodyAndPosture = (imageData, width, height) => {
+  const data = imageData.data;
+  
+  // Body region: middle horizontal, lower half of frame
+  const bodyStartY = Math.floor(height * 0.4);
+  const bodyEndY = Math.floor(height * 0.95);
+  const bodyStartX = Math.floor(width * 0.1);
+  const bodyEndX = Math.floor(width * 0.9);
+  
+  let skinPixelsLeft = 0;
+  let skinPixelsRight = 0;
+  let skinPixelsCenter = 0;
+  let totalPixels = 0;
+  
+  const midX = Math.floor(width / 2);
+  
+  for (let y = bodyStartY; y < bodyEndY; y += 3) {
+    for (let x = bodyStartX; x < bodyEndX; x += 3) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      
+      // Detect skin or clothing (broader detection)
+      const isSkinOrBody = 
+        (r > 60 && g > 40 && b > 20 && r > g && r > b) || // Skin
+        (Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && r > 30); // Clothing
+      
+      if (isSkinOrBody) {
+        if (x < midX - width * 0.1) skinPixelsLeft++;
+        else if (x > midX + width * 0.1) skinPixelsRight++;
+        else skinPixelsCenter++;
+      }
+      totalPixels++;
+    }
+  }
+  
+  const bodyRatio = totalPixels > 0 ? (skinPixelsLeft + skinPixelsRight + skinPixelsCenter) / totalPixels : 0;
+  const bodyDetected = bodyRatio > 0.1;
+  
+  // Shoulder openness: based on horizontal spread of body
+  // More pixels on left and right = more open posture
+  const totalSkin = skinPixelsLeft + skinPixelsRight + skinPixelsCenter;
+  const shoulderOpenness = totalSkin > 0 
+    ? clamp((skinPixelsLeft + skinPixelsRight) / totalSkin * 1.5)
+    : 0.5;
+  
+  return {
+    bodyDetected,
+    shoulderOpenness,
+    bodySpread: { left: skinPixelsLeft, center: skinPixelsCenter, right: skinPixelsRight }
+  };
+};
+
+/**
+ * Detect gestures by measuring motion in arm/hand regions
+ */
+const detectGestures = (currentData, prevData, width, height) => {
+  if (!prevData) return { gestureMotion: 0, isGesturing: false };
+  
+  // Arm regions: left and right sides, middle height
+  const regions = [
+    { startX: 0, endX: Math.floor(width * 0.3), startY: Math.floor(height * 0.3), endY: Math.floor(height * 0.8) }, // Left arm
+    { startX: Math.floor(width * 0.7), endX: width, startY: Math.floor(height * 0.3), endY: Math.floor(height * 0.8) }, // Right arm
+  ];
+  
+  let totalMotion = 0;
+  let pixelCount = 0;
+  
+  for (const region of regions) {
+    for (let y = region.startY; y < region.endY; y += 4) {
+      for (let x = region.startX; x < region.endX; x += 4) {
+        const idx = (y * width + x) * 4;
+        const diff = Math.abs(currentData[idx] - prevData[idx]) +
+                     Math.abs(currentData[idx + 1] - prevData[idx + 1]) +
+                     Math.abs(currentData[idx + 2] - prevData[idx + 2]);
+        totalMotion += diff;
+        pixelCount++;
+      }
+    }
+  }
+  
+  const avgMotion = pixelCount > 0 ? totalMotion / pixelCount / 255 : 0;
+  const gestureThreshold = 0.05;
+  
+  return {
+    gestureMotion: clamp(avgMotion * 3),
+    isGesturing: avgMotion > gestureThreshold
+  };
+};
+
+/**
+ * Calculate posture stability from body region movement
+ */
+const calculatePostureStability = (currentData, prevData, width, height) => {
+  if (!prevData) return 1.0; // Assume stable initially
+  
+  // Torso region: center of frame
+  const startX = Math.floor(width * 0.3);
+  const endX = Math.floor(width * 0.7);
+  const startY = Math.floor(height * 0.4);
+  const endY = Math.floor(height * 0.8);
+  
+  let totalMotion = 0;
+  let pixelCount = 0;
+  
+  for (let y = startY; y < endY; y += 4) {
+    for (let x = startX; x < endX; x += 4) {
+      const idx = (y * width + x) * 4;
+      const diff = Math.abs(currentData[idx] - prevData[idx]);
+      totalMotion += diff;
+      pixelCount++;
+    }
+  }
+  
+  const avgMotion = pixelCount > 0 ? totalMotion / pixelCount / 255 : 0;
+  
+  // Invert: less motion = more stable (1.0 = perfectly stable)
+  return clamp(1 - avgMotion * 10);
+};
+
+/**
  * Main hook for video perception
  */
 export const useVideoPerception = (options = {}) => {
@@ -218,7 +344,13 @@ export const useVideoPerception = (options = {}) => {
       faceDetected: false,
       eyeContact: false,
       headMotionDelta: 0,
-      facialActivity: 0.3 // Default moderate activity
+      facialActivity: 0.3, // Default moderate activity
+      // Body language metrics
+      bodyDetected: false,
+      shoulderOpenness: 0.5,
+      isGesturing: false,
+      gestureMotion: 0,
+      postureStability: 1.0
     };
 
     try {
@@ -246,6 +378,31 @@ export const useVideoPerception = (options = {}) => {
       frameData.headMotionDelta = motionResult.motion;
       frameData.facialActivity = frameData.faceDetected ? motionResult.engagement : 0;
       
+      // Body language detection
+      const bodyResult = detectBodyAndPosture(imageData, width, height);
+      frameData.bodyDetected = bodyResult.bodyDetected;
+      frameData.shoulderOpenness = bodyResult.shoulderOpenness;
+      
+      // Gesture detection
+      if (prevImageDataRef.current) {
+        const gestureResult = detectGestures(
+          imageData.data,
+          prevImageDataRef.current,
+          width,
+          height
+        );
+        frameData.isGesturing = gestureResult.isGesturing;
+        frameData.gestureMotion = gestureResult.gestureMotion;
+        
+        // Posture stability
+        frameData.postureStability = calculatePostureStability(
+          imageData.data,
+          prevImageDataRef.current,
+          width,
+          height
+        );
+      }
+      
       // Store for next frame comparison
       prevImageDataRef.current = new Uint8ClampedArray(imageData.data);
 
@@ -267,7 +424,13 @@ export const useVideoPerception = (options = {}) => {
         eye_contact_ratio: 0,
         head_motion_variance: 0,
         facial_engagement_score: 0,
-        total_frames: 0
+        total_frames: 0,
+        // Body language defaults
+        body_detected_ratio: 0,
+        shoulder_openness: 0.5,
+        gesture_frequency: 0,
+        posture_stability: 1.0,
+        gesture_amplitude: 0
       };
     }
 
@@ -291,13 +454,46 @@ export const useVideoPerception = (options = {}) => {
       ? facialActivities.reduce((a, b) => a + b, 0) / facialActivities.length
       : 0;
 
+    // Body language metrics
+    const framesWithBody = frames.filter(f => f.bodyDetected);
+    const bodyDetectedRatio = framesWithBody.length / totalFrames;
+    
+    // Shoulder openness (average)
+    const shoulderValues = framesWithBody.map(f => f.shoulderOpenness);
+    const avgShoulderOpenness = shoulderValues.length > 0
+      ? shoulderValues.reduce((a, b) => a + b, 0) / shoulderValues.length
+      : 0.5;
+    
+    // Gesture frequency (gestures per second at FRAME_RATE FPS)
+    const gesturingFrames = frames.filter(f => f.isGesturing).length;
+    const durationSeconds = totalFrames / FRAME_RATE;
+    const gestureFrequency = durationSeconds > 0 ? gesturingFrames / durationSeconds : 0;
+    
+    // Gesture amplitude (average motion when gesturing)
+    const gestureMotions = frames.filter(f => f.isGesturing).map(f => f.gestureMotion);
+    const gestureAmplitude = gestureMotions.length > 0
+      ? gestureMotions.reduce((a, b) => a + b, 0) / gestureMotions.length
+      : 0;
+    
+    // Posture stability (average)
+    const stabilityValues = frames.map(f => f.postureStability).filter(v => v > 0);
+    const avgPostureStability = stabilityValues.length > 0
+      ? stabilityValues.reduce((a, b) => a + b, 0) / stabilityValues.length
+      : 1.0;
+
     return {
       video_available: 1,
       face_presence_ratio: Math.round(clamp(facePresenceRatio) * 1000) / 1000,
       eye_contact_ratio: Math.round(clamp(eyeContactRatio) * 1000) / 1000,
       head_motion_variance: Math.round(clamp(headMotionVariance) * 1000) / 1000,
       facial_engagement_score: Math.round(clamp(facialEngagementScore) * 1000) / 1000,
-      total_frames: totalFrames
+      total_frames: totalFrames,
+      // Body language metrics
+      body_detected_ratio: Math.round(clamp(bodyDetectedRatio) * 1000) / 1000,
+      shoulder_openness: Math.round(clamp(avgShoulderOpenness) * 1000) / 1000,
+      gesture_frequency: Math.round(gestureFrequency * 100) / 100,
+      posture_stability: Math.round(clamp(avgPostureStability) * 1000) / 1000,
+      gesture_amplitude: Math.round(clamp(gestureAmplitude) * 1000) / 1000
     };
   }, []);
 
