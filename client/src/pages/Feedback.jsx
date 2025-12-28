@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { formatDuration, formatDateTime } from '../utils/formatters';
 import { SCENARIO_LABELS } from '../utils/constants';
+import BehavioralTimeline from '../components/Feedback/BehavioralTimeline';
 
 const Feedback = () => {
   const { sessionId } = useParams();
@@ -275,6 +276,16 @@ const Feedback = () => {
             </div>
           </div>
         </div>
+
+        {/* Behavioral Timeline - Shows where user went wrong */}
+        {feedback?.videoMetrics?.timeline && (
+          <div className="mb-6">
+            <BehavioralTimeline 
+              timeline={feedback.videoMetrics.timeline}
+              sessionDuration={feedback.videoMetrics.timeline?.summary?.sessionDuration || duration * 1000}
+            />
+          </div>
+        )}
 
         {/* View Insights Toggle */}
         <button

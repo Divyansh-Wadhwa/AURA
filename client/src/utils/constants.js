@@ -15,6 +15,7 @@ export const SCENARIOS = {
   HR_INTERVIEW: 'hr-interview',
   CASE_STUDY: 'case-study',
   GENERAL_PRACTICE: 'general-practice',
+  CUSTOM: 'custom',
 };
 
 export const SKILLS = {
@@ -38,6 +39,7 @@ export const SCENARIO_LABELS = {
   'hr-interview': 'HR Interview',
   'case-study': 'Case Study',
   'general-practice': 'General Practice',
+  'custom': 'Custom Interview',
 };
 
 export const SCENARIO_DESCRIPTIONS = {
@@ -46,6 +48,7 @@ export const SCENARIO_DESCRIPTIONS = {
   'hr-interview': 'Discuss career goals, company fit, and professional development',
   'case-study': 'Analyze business scenarios and propose strategic solutions',
   'general-practice': 'Mixed questions for overall interview preparation',
+  'custom': 'Upload your resume/JD and set custom interview context',
 };
 
 export const SKILL_LABELS = {

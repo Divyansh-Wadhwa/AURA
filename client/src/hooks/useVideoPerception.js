@@ -439,6 +439,9 @@ export const useVideoPerception = (options = {}) => {
     isValid: true
   });
 
+  // Timeline state for behavioral events
+  const [timeline, setTimeline] = useState({ events: [], summary: {} });
+
   // Refs
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
@@ -447,6 +450,17 @@ export const useVideoPerception = (options = {}) => {
   const frameDataRef = useRef([]);
   const prevImageDataRef = useRef(null);
   const prevBrightnessRef = useRef(null);
+  
+  // Timeline tracking refs (for event detection)
+  const sessionStartTimeRef = useRef(null);
+  const eventsRef = useRef([]);
+  const activeEventsRef = useRef({
+    eyeContactLost: null,
+    faceLeft: null,
+    fidgeting: null,
+    closedPosture: null,
+    lowEngagement: null
+  });
 
   // Initialize (lightweight - just create canvas)
   const initialize = useCallback(async () => {
@@ -557,6 +571,120 @@ export const useVideoPerception = (options = {}) => {
       
       // Store for next frame comparison
       prevImageDataRef.current = new Uint8ClampedArray(imageData.data);
+      
+      // === TIMELINE EVENT DETECTION (lightweight threshold checks) ===
+      const currentTime = sessionStartTimeRef.current ? timestamp - sessionStartTimeRef.current : 0;
+      
+      // Event: Eye contact lost
+      if (frameData.faceDetected && !frameData.eyeContact) {
+        if (!activeEventsRef.current.eyeContactLost) {
+          activeEventsRef.current.eyeContactLost = { startTime: currentTime, frameCount: 1 };
+        } else {
+          activeEventsRef.current.eyeContactLost.frameCount++;
+        }
+      } else if (activeEventsRef.current.eyeContactLost) {
+        // Eye contact restored - close event if significant (3+ frames = 600ms at 5FPS)
+        const event = activeEventsRef.current.eyeContactLost;
+        if (event.frameCount >= 3) {
+          eventsRef.current.push({
+            type: 'eye_contact_lost',
+            startTime: event.startTime,
+            endTime: currentTime,
+            duration: currentTime - event.startTime,
+            severity: event.frameCount >= 10 ? 'critical' : 'warning',
+            message: `Lost eye contact for ${Math.round((currentTime - event.startTime) / 1000)}s`
+          });
+        }
+        activeEventsRef.current.eyeContactLost = null;
+      }
+      
+      // Event: Face left frame
+      if (!frameData.faceDetected) {
+        if (!activeEventsRef.current.faceLeft) {
+          activeEventsRef.current.faceLeft = { startTime: currentTime, frameCount: 1 };
+        } else {
+          activeEventsRef.current.faceLeft.frameCount++;
+        }
+      } else if (activeEventsRef.current.faceLeft) {
+        const event = activeEventsRef.current.faceLeft;
+        if (event.frameCount >= 2) {
+          eventsRef.current.push({
+            type: 'face_not_visible',
+            startTime: event.startTime,
+            endTime: currentTime,
+            duration: currentTime - event.startTime,
+            severity: event.frameCount >= 5 ? 'critical' : 'warning',
+            message: `Face not visible for ${Math.round((currentTime - event.startTime) / 1000)}s`
+          });
+        }
+        activeEventsRef.current.faceLeft = null;
+      }
+      
+      // Event: Excessive fidgeting (high head motion)
+      if (frameData.headMotionDelta > 0.25) {
+        if (!activeEventsRef.current.fidgeting) {
+          activeEventsRef.current.fidgeting = { startTime: currentTime, frameCount: 1 };
+        } else {
+          activeEventsRef.current.fidgeting.frameCount++;
+        }
+      } else if (activeEventsRef.current.fidgeting) {
+        const event = activeEventsRef.current.fidgeting;
+        if (event.frameCount >= 5) {
+          eventsRef.current.push({
+            type: 'excessive_movement',
+            startTime: event.startTime,
+            endTime: currentTime,
+            duration: currentTime - event.startTime,
+            severity: 'info',
+            message: `Excessive movement detected`
+          });
+        }
+        activeEventsRef.current.fidgeting = null;
+      }
+      
+      // Event: Closed posture
+      if (frameData.bodyDetected && frameData.shoulderOpenness < 0.3) {
+        if (!activeEventsRef.current.closedPosture) {
+          activeEventsRef.current.closedPosture = { startTime: currentTime, frameCount: 1 };
+        } else {
+          activeEventsRef.current.closedPosture.frameCount++;
+        }
+      } else if (activeEventsRef.current.closedPosture) {
+        const event = activeEventsRef.current.closedPosture;
+        if (event.frameCount >= 10) { // 2 seconds
+          eventsRef.current.push({
+            type: 'closed_posture',
+            startTime: event.startTime,
+            endTime: currentTime,
+            duration: currentTime - event.startTime,
+            severity: 'info',
+            message: `Closed body posture detected`
+          });
+        }
+        activeEventsRef.current.closedPosture = null;
+      }
+      
+      // Event: Low engagement
+      if (frameData.faceDetected && frameData.facialActivity < 0.2) {
+        if (!activeEventsRef.current.lowEngagement) {
+          activeEventsRef.current.lowEngagement = { startTime: currentTime, frameCount: 1 };
+        } else {
+          activeEventsRef.current.lowEngagement.frameCount++;
+        }
+      } else if (activeEventsRef.current.lowEngagement) {
+        const event = activeEventsRef.current.lowEngagement;
+        if (event.frameCount >= 15) { // 3 seconds
+          eventsRef.current.push({
+            type: 'low_engagement',
+            startTime: event.startTime,
+            endTime: currentTime,
+            duration: currentTime - event.startTime,
+            severity: 'warning',
+            message: `Low facial engagement for ${Math.round((currentTime - event.startTime) / 1000)}s`
+          });
+        }
+        activeEventsRef.current.lowEngagement = null;
+      }
 
     } catch (err) {
       console.warn('[VideoPerception] Frame processing error:', err);
@@ -663,9 +791,21 @@ export const useVideoPerception = (options = {}) => {
     frameDataRef.current = [];
     prevImageDataRef.current = null;
     prevBrightnessRef.current = null;
+    
+    // Initialize timeline tracking
+    sessionStartTimeRef.current = Date.now();
+    eventsRef.current = [];
+    activeEventsRef.current = {
+      eyeContactLost: null,
+      faceLeft: null,
+      fidgeting: null,
+      closedPosture: null,
+      lowEngagement: null
+    };
+    
     setIsAnalyzing(true);
 
-    console.log('[VideoPerception] Starting analysis at', FRAME_RATE, 'FPS');
+    console.log('[VideoPerception] Starting analysis at', FRAME_RATE, 'FPS with timeline tracking');
 
     // Start frame extraction interval
     intervalRef.current = setInterval(() => {
@@ -689,6 +829,54 @@ export const useVideoPerception = (options = {}) => {
     return true;
   }, [enabled, isAnalyzing, isInitialized, initialize, processFrame, aggregateMetrics, onMetricsUpdate]);
 
+  // Aggregate timeline events into summary
+  const aggregateTimeline = useCallback(() => {
+    const events = [...eventsRef.current];
+    
+    // Close any active events
+    const currentTime = sessionStartTimeRef.current ? Date.now() - sessionStartTimeRef.current : 0;
+    Object.entries(activeEventsRef.current).forEach(([key, event]) => {
+      if (event && event.frameCount >= 3) {
+        const typeMap = {
+          eyeContactLost: 'eye_contact_lost',
+          faceLeft: 'face_not_visible',
+          fidgeting: 'excessive_movement',
+          closedPosture: 'closed_posture',
+          lowEngagement: 'low_engagement'
+        };
+        events.push({
+          type: typeMap[key] || key,
+          startTime: event.startTime,
+          endTime: currentTime,
+          duration: currentTime - event.startTime,
+          severity: 'warning',
+          message: `Issue detected at end of session`
+        });
+      }
+    });
+    
+    // Sort events by start time
+    events.sort((a, b) => a.startTime - b.startTime);
+    
+    // Generate summary
+    const summary = {
+      totalEvents: events.length,
+      eyeContactIssues: events.filter(e => e.type === 'eye_contact_lost').length,
+      visibilityIssues: events.filter(e => e.type === 'face_not_visible').length,
+      movementIssues: events.filter(e => e.type === 'excessive_movement').length,
+      postureIssues: events.filter(e => e.type === 'closed_posture').length,
+      engagementIssues: events.filter(e => e.type === 'low_engagement').length,
+      criticalCount: events.filter(e => e.severity === 'critical').length,
+      warningCount: events.filter(e => e.severity === 'warning').length,
+      sessionDuration: currentTime
+    };
+    
+    const timelineData = { events, summary };
+    setTimeline(timelineData);
+    
+    return timelineData;
+  }, []);
+
   // Stop analysis and return aggregated metrics
   const stopAnalysis = useCallback(() => {
     if (intervalRef.current) {
@@ -698,9 +886,13 @@ export const useVideoPerception = (options = {}) => {
 
     setIsAnalyzing(false);
     const finalMetrics = aggregateMetrics();
+    const timelineData = aggregateTimeline();
+    
     console.log('[VideoPerception] Analysis stopped. Final metrics:', finalMetrics);
-    return finalMetrics;
-  }, [aggregateMetrics]);
+    console.log('[VideoPerception] Timeline events:', timelineData.events.length, 'events detected');
+    
+    return { ...finalMetrics, timeline: timelineData };
+  }, [aggregateMetrics, aggregateTimeline]);
 
   // Get current aggregated metrics without stopping
   const getMetrics = useCallback(() => {
@@ -782,6 +974,11 @@ export const useVideoPerception = (options = {}) => {
     });
   }, []);
 
+  // Get current timeline without stopping
+  const getTimeline = useCallback(() => {
+    return aggregateTimeline();
+  }, [aggregateTimeline]);
+
   return {
     // State
     isAnalyzing,
@@ -789,12 +986,14 @@ export const useVideoPerception = (options = {}) => {
     error,
     currentMetrics,
     environmentCheck,
+    timeline,
     
     // Methods
     initialize,
     startAnalysis,
     stopAnalysis,
     getMetrics,
+    getTimeline,
     checkEnvironment,
     resetEnvironmentCheck,
     

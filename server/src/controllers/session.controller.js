@@ -14,6 +14,7 @@ export const startSession = async (req, res, next) => {
       interactionMode = 'text-only',
       scenario = 'general-practice',
       skillFocus = ['confidence', 'clarity'],
+      customContext = null,
     } = req.body;
 
     const session = await Session.create({
@@ -22,13 +23,14 @@ export const startSession = async (req, res, next) => {
       interactionMode,
       scenario,
       skillFocus,
+      customContext: scenario === 'custom' ? customContext : null,
       status: 'active',
       startedAt: new Date(),
     });
 
     // Get behavioral profile context for adaptive AI behavior
     const profileContext = await getProfileContext(req.user._id);
-    const systemPrompt = getSystemPrompt(scenario, skillFocus, profileContext);
+    const systemPrompt = getSystemPrompt(scenario, skillFocus, profileContext, customContext);
     const initialMessage = await generateInterviewerResponse([], systemPrompt);
 
     session.addMessage('system', systemPrompt);
@@ -342,7 +344,7 @@ export const getUserStats = async (req, res, next) => {
   }
 };
 
-const getSystemPrompt = (scenario, skillFocus, profileContext = null) => {
+const getSystemPrompt = (scenario, skillFocus, profileContext = null, customContext = null) => {
   const scenarioPrompts = {
     'technical-interview': `You are a senior technical interviewer at a top tech company conducting a software engineering interview.
 Your role is to assess the candidate's technical depth, problem-solving ability, and communication skills.
@@ -374,7 +376,35 @@ Help the person feel comfortable expressing themselves.`,
     'onboarding': `You are a friendly AI coach conducting a brief get-to-know-you conversation.
 Ask open-ended, neutral questions to understand the person's natural communication style.
 Be warm, encouraging, and non-judgmental. This is NOT an evaluation.`,
+    'custom': `You are a professional interviewer conducting a customized interview session.
+Adapt your questions and approach based on the specific context provided below.`,
   };
+
+  // Build custom context section if scenario is custom
+  let customContextSection = '';
+  if (scenario === 'custom' && customContext) {
+    const parts = [];
+    
+    if (customContext.prompt) {
+      parts.push(`## INTERVIEW FOCUS\n${customContext.prompt}`);
+    }
+    
+    if (customContext.resumeText) {
+      // Truncate resume to avoid token limits
+      const resumePreview = customContext.resumeText.substring(0, 3000);
+      parts.push(`## CANDIDATE'S RESUME\n${resumePreview}${customContext.resumeText.length > 3000 ? '\n[...truncated]' : ''}`);
+    }
+    
+    if (customContext.jobDescriptionText) {
+      // Truncate JD to avoid token limits
+      const jdPreview = customContext.jobDescriptionText.substring(0, 2000);
+      parts.push(`## JOB DESCRIPTION\n${jdPreview}${customContext.jobDescriptionText.length > 2000 ? '\n[...truncated]' : ''}`);
+    }
+    
+    if (parts.length > 0) {
+      customContextSection = `\n## CUSTOM INTERVIEW CONTEXT\nUse the following information to ask relevant, personalized questions:\n\n${parts.join('\n\n')}\n\nIMPORTANT: Base your questions on this context. Reference specific skills, experiences, or requirements mentioned above.`;
+    }
+  }
 
   const focusInstructions = skillFocus.length > 0
     ? `Focus areas to assess: ${skillFocus.join(', ')}.`
@@ -399,7 +429,7 @@ Remember: Adapt your tone, pacing, and question difficulty based on these guidel
   }
 
   return `${scenarioPrompts[scenario] || scenarioPrompts['general-practice']}
-
+${customContextSection}
 ${focusInstructions}
 ${adaptiveContext}
 ## CRITICAL RULES - FOLLOW EXACTLY:

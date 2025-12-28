@@ -14,6 +14,10 @@ import {
   Camera,
   MicOff,
   VideoOff,
+  Upload,
+  FileText,
+  X,
+  Wand2,
 } from 'lucide-react';
 import {
   SCENARIOS,
@@ -33,6 +37,13 @@ const SessionSetup = () => {
     scenario: SCENARIOS.GENERAL_PRACTICE,
     interactionMode: INTERACTION_MODES.TEXT_ONLY,
     skillFocus: [SKILLS.CONFIDENCE, SKILLS.CLARITY],
+    customContext: {
+      prompt: '',
+      resumeFile: null,
+      resumeText: '',
+      jobDescriptionFile: null,
+      jobDescriptionText: '',
+    },
   });
   const [permissions, setPermissions] = useState({
     camera: null,
@@ -40,6 +51,7 @@ const SessionSetup = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(null);
 
   const { startSession } = useSession();
   const navigate = useNavigate();
@@ -83,6 +95,111 @@ const SessionSetup = () => {
     setConfig({ ...config, scenario });
   };
 
+  // Handle file upload and extract text
+  const handleFileUpload = async (e, fileType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF, TXT, or Word document');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    setUploadingFile(fileType);
+    setError('');
+
+    try {
+      // Read file content
+      const text = await extractTextFromFile(file);
+      
+      if (fileType === 'resume') {
+        setConfig(prev => ({
+          ...prev,
+          customContext: {
+            ...prev.customContext,
+            resumeFile: file,
+            resumeText: text,
+          },
+        }));
+      } else {
+        setConfig(prev => ({
+          ...prev,
+          customContext: {
+            ...prev.customContext,
+            jobDescriptionFile: file,
+            jobDescriptionText: text,
+          },
+        }));
+      }
+    } catch (err) {
+      setError('Failed to read file. Please try again.');
+    } finally {
+      setUploadingFile(null);
+    }
+  };
+
+  // Extract text from uploaded file
+  const extractTextFromFile = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        if (file.type === 'text/plain') {
+          resolve(e.target.result);
+        } else {
+          // For PDF/Word, we'll send the raw content and let server handle extraction
+          // For now, just read as text (basic support)
+          resolve(e.target.result);
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
+  };
+
+  // Remove uploaded file
+  const removeFile = (fileType) => {
+    if (fileType === 'resume') {
+      setConfig(prev => ({
+        ...prev,
+        customContext: {
+          ...prev.customContext,
+          resumeFile: null,
+          resumeText: '',
+        },
+      }));
+    } else {
+      setConfig(prev => ({
+        ...prev,
+        customContext: {
+          ...prev.customContext,
+          jobDescriptionFile: null,
+          jobDescriptionText: '',
+        },
+      }));
+    }
+  };
+
+  // Update custom prompt
+  const handleCustomPromptChange = (e) => {
+    setConfig(prev => ({
+      ...prev,
+      customContext: {
+        ...prev.customContext,
+        prompt: e.target.value,
+      },
+    }));
+  };
+
   const handleModeSelect = (mode) => {
     setConfig({ ...config, interactionMode: mode });
     setPermissions({ camera: null, microphone: null });
@@ -103,7 +220,23 @@ const SessionSetup = () => {
     setError('');
 
     try {
-      const result = await startSession(config);
+      // Prepare config for API (don't send File objects, only text content)
+      const sessionConfig = {
+        scenario: config.scenario,
+        interactionMode: config.interactionMode,
+        skillFocus: config.skillFocus,
+      };
+
+      // Include custom context if scenario is custom
+      if (config.scenario === SCENARIOS.CUSTOM) {
+        sessionConfig.customContext = {
+          prompt: config.customContext.prompt,
+          resumeText: config.customContext.resumeText,
+          jobDescriptionText: config.customContext.jobDescriptionText,
+        };
+      }
+
+      const result = await startSession(sessionConfig);
       
       if (result.success) {
         navigate(`/session/${result.data.sessionId}`);
@@ -181,7 +314,7 @@ const SessionSetup = () => {
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {Object.values(SCENARIOS).map((scenario) => (
+              {Object.values(SCENARIOS).filter(s => s !== SCENARIOS.CUSTOM).map((scenario) => (
                 <button
                   key={scenario}
                   onClick={() => handleScenarioSelect(scenario)}
@@ -197,6 +330,136 @@ const SessionSetup = () => {
                   <p className="text-gray-500 text-sm">{SCENARIO_DESCRIPTIONS[scenario]}</p>
                 </button>
               ))}
+            </div>
+
+            {/* Custom Interview Option */}
+            <div className="mt-6">
+              <button
+                onClick={() => handleScenarioSelect(SCENARIOS.CUSTOM)}
+                className={`w-full p-6 rounded-xl border-2 text-left transition-all ${
+                  config.scenario === SCENARIOS.CUSTOM
+                    ? 'border-secondary-500 bg-secondary-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    config.scenario === SCENARIOS.CUSTOM ? 'bg-secondary-600' : 'bg-gray-100'
+                  }`}>
+                    <Wand2 className={`w-6 h-6 ${config.scenario === SCENARIOS.CUSTOM ? 'text-white' : 'text-gray-600'}`} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      {SCENARIO_LABELS[SCENARIOS.CUSTOM]}
+                    </h3>
+                    <p className="text-gray-500 text-sm">{SCENARIO_DESCRIPTIONS[SCENARIOS.CUSTOM]}</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Custom Interview Configuration */}
+              {config.scenario === SCENARIOS.CUSTOM && (
+                <div className="mt-4 p-6 bg-white rounded-xl border border-gray-200 space-y-6">
+                  {/* Custom Prompt */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Interview Focus / Custom Prompt
+                    </label>
+                    <textarea
+                      value={config.customContext.prompt}
+                      onChange={handleCustomPromptChange}
+                      placeholder="e.g., DSA Interview focusing on arrays and linked lists, System Design for e-commerce platform, etc."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* File Uploads */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Resume Upload */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Resume (Optional)
+                      </label>
+                      {config.customContext.resumeFile ? (
+                        <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <FileText className="w-5 h-5 text-green-600" />
+                          <span className="flex-1 text-sm text-green-700 truncate">
+                            {config.customContext.resumeFile.name}
+                          </span>
+                          <button
+                            onClick={() => removeFile('resume')}
+                            className="p-1 hover:bg-green-100 rounded"
+                          >
+                            <X className="w-4 h-4 text-green-600" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-400 hover:bg-gray-50 transition-colors">
+                          {uploadingFile === 'resume' ? (
+                            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                          ) : (
+                            <>
+                              <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                              <span className="text-sm text-gray-500">Upload Resume</span>
+                              <span className="text-xs text-gray-400 mt-1">PDF, TXT, DOC</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept=".pdf,.txt,.doc,.docx"
+                            onChange={(e) => handleFileUpload(e, 'resume')}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Job Description Upload */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Job Description (Optional)
+                      </label>
+                      {config.customContext.jobDescriptionFile ? (
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                          <span className="flex-1 text-sm text-blue-700 truncate">
+                            {config.customContext.jobDescriptionFile.name}
+                          </span>
+                          <button
+                            onClick={() => removeFile('jobDescription')}
+                            className="p-1 hover:bg-blue-100 rounded"
+                          >
+                            <X className="w-4 h-4 text-blue-600" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-400 hover:bg-gray-50 transition-colors">
+                          {uploadingFile === 'jobDescription' ? (
+                            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                          ) : (
+                            <>
+                              <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                              <span className="text-sm text-gray-500">Upload JD</span>
+                              <span className="text-xs text-gray-400 mt-1">PDF, TXT, DOC</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept=".pdf,.txt,.doc,.docx"
+                            onChange={(e) => handleFileUpload(e, 'jobDescription')}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    The AI interviewer will use your resume and job description to ask relevant, personalized questions.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -300,6 +563,30 @@ const SessionSetup = () => {
                     {config.skillFocus.map((s) => SKILL_LABELS[s]).join(', ')}
                   </span>
                 </div>
+                {config.scenario === SCENARIOS.CUSTOM && (
+                  <>
+                    {config.customContext.prompt && (
+                      <div className="pt-3 border-t border-gray-100">
+                        <span className="text-gray-500 text-sm">Custom Focus:</span>
+                        <p className="text-gray-900 text-sm mt-1">{config.customContext.prompt}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      {config.customContext.resumeFile && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          Resume uploaded
+                        </span>
+                      )}
+                      {config.customContext.jobDescriptionFile && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          JD uploaded
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

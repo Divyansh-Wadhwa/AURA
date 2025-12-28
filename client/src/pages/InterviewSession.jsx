@@ -76,7 +76,9 @@ const InterviewSession = () => {
     error: videoPerceptionError,
     checkEnvironment,
     resetEnvironmentCheck,
-    environmentCheck
+    environmentCheck,
+    timeline: videoTimeline,
+    getTimeline
   } = useVideoPerception({
     enabled: videoModeEnabled,
     onMetricsUpdate: (metrics) => {

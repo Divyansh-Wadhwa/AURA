@@ -8,7 +8,7 @@ export const getSessionFeedback = async (req, res, next) => {
     const session = await Session.findOne({
       _id: sessionId,
       userId: req.user._id,
-    }).select('scores feedback status duration scenario skillFocus createdAt');
+    }).select('scores feedback status duration scenario skillFocus createdAt videoMetrics');
 
     if (!session) {
       return res.status(404).json({
@@ -44,6 +44,7 @@ export const getSessionFeedback = async (req, res, next) => {
         scenario: session.scenario,
         skillFocus: session.skillFocus,
         completedAt: session.createdAt,
+        videoMetrics: session.videoMetrics || null,
       },
     });
   } catch (error) {

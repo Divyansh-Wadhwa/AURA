@@ -75,6 +75,33 @@ const audioRefSchema = new mongoose.Schema({
   },
 });
 
+// Timeline event schema for behavioral tracking
+const timelineEventSchema = new mongoose.Schema({
+  type: String,
+  startTime: Number,
+  endTime: Number,
+  duration: Number,
+  severity: String,
+  message: String,
+}, { _id: false });
+
+const timelineSummarySchema = new mongoose.Schema({
+  totalEvents: Number,
+  eyeContactIssues: Number,
+  visibilityIssues: Number,
+  movementIssues: Number,
+  postureIssues: Number,
+  engagementIssues: Number,
+  criticalCount: Number,
+  warningCount: Number,
+  sessionDuration: Number,
+}, { _id: false });
+
+const timelineSchema = new mongoose.Schema({
+  events: [timelineEventSchema],
+  summary: timelineSummarySchema,
+}, { _id: false });
+
 const videoMetricsSchema = new mongoose.Schema({
   video_available: {
     type: Number,
@@ -106,6 +133,37 @@ const videoMetricsSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // Body language metrics
+  body_detected_ratio: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0,
+  },
+  shoulder_openness: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0.5,
+  },
+  gesture_frequency: {
+    type: Number,
+    default: 0,
+  },
+  posture_stability: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 1,
+  },
+  gesture_amplitude: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0,
+  },
+  // Behavioral timeline
+  timeline: timelineSchema,
 });
 
 const sessionSchema = new mongoose.Schema(
@@ -138,6 +196,7 @@ const sessionSchema = new mongoose.Schema(
         'presentation',
         'group_discussion',
         'casual_conversation',
+        'custom',
       ],
       default: 'general-practice',
     },
@@ -145,6 +204,11 @@ const sessionSchema = new mongoose.Schema(
       type: [String],
       enum: ['confidence', 'clarity', 'empathy', 'communication'],
       default: ['confidence', 'clarity'],
+    },
+    customContext: {
+      prompt: String,
+      resumeText: String,
+      jobDescriptionText: String,
     },
     status: {
       type: String,
