@@ -76,7 +76,6 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Get access token and sync user on Auth0 authentication
-   * Uses sessionStorage to track sync state across component remounts
    */
   useEffect(() => {
     // Don't do anything while Auth0 is still loading
@@ -84,30 +83,12 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    // Check if already synced for this user (survives HMR and StrictMode)
-    const syncedUserId = sessionStorage.getItem('aura_synced_user');
-    const currentUserId = auth0User?.sub;
-    
-    console.log('[Auth] Init check:', { syncedUserId, currentUserId, initRef: initRef.current, globalLock: globalInitLock, loading });
-    
-    // If we've already synced this user, just restore state from sessionStorage
-    if (syncedUserId && syncedUserId === currentUserId) {
-      console.log('[Auth] Already synced, skipping');
-      initRef.current = true;
-      globalInitLock = true;
-      if (loading) setLoading(false);
-      return;
-    }
-
-    // Prevent concurrent init with both ref and module lock
+    // Prevent concurrent init
     if (initRef.current || globalInitLock) {
-      console.log('[Auth] Locked, skipping');
-      if (loading) setLoading(false);
       return;
     }
 
     // Lock immediately
-    console.log('[Auth] Starting sync...');
     initRef.current = true;
     globalInitLock = true;
 
@@ -124,9 +105,6 @@ export const AuthProvider = ({ children }) => {
           // Sync with backend
           const syncedUser = await syncUserWithBackend(token, auth0User);
           setUser(syncedUser);
-          
-          // Mark this user as synced in sessionStorage
-          sessionStorage.setItem('aura_synced_user', auth0User.sub);
         } catch (err) {
           console.error('[Auth] Token retrieval failed:', err);
           setError('Failed to authenticate. Please try again.');
@@ -135,7 +113,6 @@ export const AuthProvider = ({ children }) => {
         // Not authenticated - clear state
         setUser(null);
         setAccessToken(null);
-        sessionStorage.removeItem('aura_synced_user');
         delete api.defaults.headers.common['Authorization'];
       }
       
@@ -167,10 +144,9 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setUser(null);
     setAccessToken(null);
-    // Reset locks and session tracking so next login will sync
+    // Reset locks so next login will sync
     initRef.current = false;
     globalInitLock = false;
-    sessionStorage.removeItem('aura_synced_user');
     delete api.defaults.headers.common['Authorization'];
     
     auth0Logout({
